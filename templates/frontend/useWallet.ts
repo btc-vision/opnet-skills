@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { useWalletConnect } from '@btc-vision/walletconnect';
-import { Address } from '@btc-vision/transaction';
 
 /**
  * Hook for wallet connection and management.
@@ -10,33 +9,28 @@ import { Address } from '@btc-vision/transaction';
  */
 export function useWallet() {
     const walletConnect = useWalletConnect();
-    const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
     /**
-     * Connect to an available wallet.
+     * Open the wallet connection modal.
      */
-    const connect = useCallback(async () => {
-        setIsConnecting(true);
+    const openConnectModal = useCallback(() => {
         setError(null);
-
         try {
-            await walletConnect.requestConnection();
+            walletConnect.openConnectModal();
         } catch (err) {
             const connectError = err instanceof Error ? err : new Error(String(err));
             setError(connectError);
-        } finally {
-            setIsConnecting(false);
         }
     }, [walletConnect]);
 
     /**
      * Disconnect the current wallet.
      */
-    const disconnect = useCallback(async () => {
+    const disconnect = useCallback(() => {
         setError(null);
         try {
-            await walletConnect.disconnect();
+            walletConnect.disconnect();
         } catch (err) {
             const disconnectError = err instanceof Error ? err : new Error(String(err));
             setError(disconnectError);
@@ -44,16 +38,16 @@ export function useWallet() {
     }, [walletConnect]);
 
     /**
-     * Sign a message with the connected wallet.
+     * Sign a message with ML-DSA (quantum-resistant signature).
      *
      * @param message - The message to sign
-     * @returns The signature or null if signing failed
+     * @returns The ML-DSA signature or null if signing failed
      */
     const signMessage = useCallback(
-        async (message: string): Promise<string | null> => {
+        async (message: string) => {
             setError(null);
             try {
-                const signature = await walletConnect.signMessage(message);
+                const signature = await walletConnect.signMLDSAMessage(message);
                 return signature;
             } catch (err) {
                 const signError = err instanceof Error ? err : new Error(String(err));
@@ -65,52 +59,43 @@ export function useWallet() {
     );
 
     /**
-     * Sign a PSBT with the connected wallet.
+     * Verify an ML-DSA signature.
      *
-     * @param psbt - The PSBT to sign (base64 or hex)
-     * @returns The signed PSBT or null if signing failed
+     * @param message - The original message
+     * @param signature - The signature to verify
+     * @returns True if valid, false otherwise
      */
-    const signPsbt = useCallback(
-        async (psbt: string): Promise<string | null> => {
+    const verifySignature = useCallback(
+        async (message: string, signature: Parameters<typeof walletConnect.verifyMLDSASignature>[1]) => {
             setError(null);
             try {
-                const signedPsbt = await walletConnect.signPsbt(psbt);
-                return signedPsbt;
+                return await walletConnect.verifyMLDSASignature(message, signature);
             } catch (err) {
-                const signError = err instanceof Error ? err : new Error(String(err));
-                setError(signError);
-                return null;
+                const verifyError = err instanceof Error ? err : new Error(String(err));
+                setError(verifyError);
+                return false;
             }
         },
         [walletConnect]
     );
 
-    /**
-     * Get the wallet address as an Address object for contract interactions.
-     *
-     * @returns Address object or null if not connected
-     */
-    const getAddress = useCallback((): Address | null => {
-        const addr = walletConnect.address;
-        if (!addr) return null;
-        try {
-            return Address.fromString(addr.toString());
-        } catch {
-            return null;
-        }
-    }, [walletConnect.address]);
+    const isConnected = walletConnect.address !== null;
 
     return {
-        address: walletConnect.address,
+        address: walletConnect.walletAddress,
+        addressObject: walletConnect.address,
         publicKey: walletConnect.publicKey,
-        isConnected: walletConnect.connected,
-        isConnecting,
+        mldsaPublicKey: walletConnect.mldsaPublicKey,
+        isConnected,
+        isConnecting: walletConnect.connecting,
         error,
-        walletName: walletConnect.walletName,
-        connect,
+        walletType: walletConnect.walletType,
+        provider: walletConnect.provider,
+        signer: walletConnect.signer,
+        balance: walletConnect.walletBalance,
+        openConnectModal,
         disconnect,
         signMessage,
-        signPsbt,
-        getAddress,
+        verifySignature,
     };
 }

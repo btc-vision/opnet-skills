@@ -382,6 +382,20 @@ public async transfer(to: Address, amount: bigint): Promise<boolean> {
 - **`bigint`**: Satoshi amounts, block heights, timestamps, database IDs, file sizes, cumulative totals
 - **Floats for financial values**: **FORBIDDEN** - Use fixed-point `bigint` with explicit scale
 
+### Common API Pitfalls
+
+**`Address.fromString()` requires TWO parameters:**
+
+```typescript
+// WRONG - will fail
+const addr = Address.fromString(addressString);
+
+// CORRECT - always provide both params
+const addr = Address.fromString(mldsaPublicKey, tweakedPublicKey);
+```
+
+The first parameter is the ML-DSA public key (quantum-resistant), the second is the tweaked public key (legacy Bitcoin). Always provide both.
+
 ### Required tsconfig.json Settings
 
 ```json

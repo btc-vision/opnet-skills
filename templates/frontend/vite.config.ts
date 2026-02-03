@@ -14,11 +14,14 @@ export default defineConfig({
         react(),
     ],
     resolve: {
+        alias: {
+            '@noble/hashes/sha256': '@noble/hashes/sha2.js',
+            '@noble/hashes/sha512': '@noble/hashes/sha2.js',
+            '@noble/hashes/ripemd160': '@noble/hashes/legacy.js',
+        },
         dedupe: [
             '@noble/curves',
             '@noble/hashes',
-            '@scure/bip32',
-            '@scure/bip39',
             'buffer',
             'react',
             'react-dom',
@@ -29,17 +32,14 @@ export default defineConfig({
         rollupOptions: {
             output: {
                 manualChunks: {
-                    // Crypto libraries
-                    crypto: ['@noble/curves', '@noble/hashes', '@scure/bip32', '@scure/bip39'],
-                    // BTC Vision packages
+                    crypto: ['@noble/curves', '@noble/hashes'],
                     btcvision: [
                         '@btc-vision/transaction',
                         '@btc-vision/bitcoin',
                         '@btc-vision/bip32',
+                        '@btc-vision/ecpair',
                     ],
-                    // OPNet
                     opnet: ['opnet'],
-                    // React
                     react: ['react', 'react-dom', 'react-router-dom'],
                 },
             },

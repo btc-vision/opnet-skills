@@ -48,8 +48,6 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
         Blockchain.dispose();
     });
 
-    // ==================== METADATA TESTS ====================
-
     await vm.it('should return correct token name', async () => {
         const name = await token.name();
         Assert.expect(name).toBeDefined();
@@ -67,8 +65,6 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
         Assert.expect(decimals).toBeGreaterThanOrEqual(0);
         Assert.expect(decimals).toBeLessThanOrEqual(18);
     });
-
-    // ==================== BALANCE TESTS ====================
 
     await vm.it('should return zero balance for new address', async () => {
         const balance = await token.balanceOf(userAddress);
@@ -88,8 +84,6 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
         const balance = await token.balanceOf(userAddress);
         Assert.expect(balance.toString()).toEqual(mintAmount.toString());
     });
-
-    // ==================== TRANSFER TESTS ====================
 
     await vm.it('should transfer tokens successfully', async () => {
         const mintAmount = u256.fromU64(1000n);
@@ -120,8 +114,6 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
             await token.transfer(recipientAddress, transferAmount);
         }).toThrow();
     });
-
-    // ==================== APPROVAL TESTS ====================
 
     await vm.it('should approve spender correctly', async () => {
         const approveAmount = u256.fromU64(500n);
@@ -160,8 +152,6 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
         Assert.expect(remainingAllowance.toString()).toEqual('300');
     });
 
-    // ==================== ACCESS CONTROL TESTS ====================
-
     await vm.it('should only allow deployer to mint', async () => {
         const mintAmount = u256.fromU64(100n);
 
@@ -172,8 +162,6 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
             await token.mint(userAddress, mintAmount);
         }).toThrow();
     });
-
-    // ==================== EVENT TESTS ====================
 
     await vm.it('should emit Transfer event on transfer', async () => {
         const mintAmount = u256.fromU64(1000n);
@@ -195,8 +183,6 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
         const transferEvent = events.find((e) => e.name === 'Transfer');
         Assert.expect(transferEvent).toBeDefined();
     });
-
-    // ==================== GAS TRACKING TESTS ====================
 
     await vm.it('should track gas consumption', async () => {
         Blockchain.enableGasTracking();

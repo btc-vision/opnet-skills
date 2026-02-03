@@ -72,10 +72,9 @@ export class MyContract extends OP_NET {
         this.storedValue.value = u256.fromU32(100);
     }
 
-    // ==================== ACCESS CONTROL ====================
-
     /**
-     * Ensure caller is the owner
+     * Ensures the caller is the contract owner.
+     * @throws {Revert} If caller is not the owner
      */
     private ensureOwner(): void {
         if (Blockchain.tx.sender.p2tr() !== this.owner.value) {
@@ -92,10 +91,9 @@ export class MyContract extends OP_NET {
         }
     }
 
-    // ==================== VIEW METHODS ====================
-
     /**
-     * Get the current owner address
+     * Returns the current owner address.
+     * @returns The owner's P2TR address as a string
      */
     @method()
     @returns({ name: 'owner', type: ABIDataTypes.STRING })
@@ -128,10 +126,10 @@ export class MyContract extends OP_NET {
         return response;
     }
 
-    // ==================== STATE-CHANGING METHODS ====================
-
     /**
-     * Set a new value (when not paused)
+     * Sets a new stored value (when contract is not paused).
+     * @param calldata - Contains the new u256 value to store
+     * @emits ValueChanged
      */
     @method({ name: 'newValue', type: ABIDataTypes.UINT256 })
     @emit('ValueChanged')
@@ -171,10 +169,9 @@ export class MyContract extends OP_NET {
         return response;
     }
 
-    // ==================== OWNER-ONLY METHODS ====================
-
     /**
-     * Pause the contract (owner only)
+     * Pauses the contract, preventing state-changing operations.
+     * @throws {Revert} If caller is not the owner
      */
     @method()
     public pause(_: Calldata): BytesWriter {

@@ -190,10 +190,9 @@ export class OP20Indexer extends PluginBase {
         });
     }
 
-    // ==================== PRIVATE METHODS ====================
-
     /**
-     * Process a block and extract OP20 transfers
+     * Processes a block and extracts OP20 transfer events from all transactions.
+     * @param block - The block data to process
      */
     private async processBlock(block: IBlockProcessedData): Promise<void> {
         for (const tx of block.transactions) {
