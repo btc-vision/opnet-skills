@@ -959,22 +959,15 @@ function useTransaction() {
 
 ## Configuration Requirements
 
-All OPNet frontends MUST use these configurations. Copy from `/root/opnet-skills/configs/frontend/`.
+Copy config templates from `setup/` folder:
 
-### Required tsconfig Settings
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2025",
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true
-  }
-}
+```bash
+cp setup/.prettierrc .prettierrc
+cp setup/eslint-react.json .eslintrc.json
+cp setup/tsconfig-generic.json tsconfig.json
 ```
+
+See `setup/README.md` for details.
 
 ### Required Vite Polyfills
 

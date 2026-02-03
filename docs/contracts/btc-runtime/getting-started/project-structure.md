@@ -124,43 +124,7 @@ export function abort(message: string, fileName: string, line: u32, column: u32)
 
 ### asconfig.json
 
-AssemblyScript compiler configuration with per-contract targets:
-
-```json
-{
-    "targets": {
-        "token": {
-            "outFile": "build/MyToken.wasm",
-            "use": ["abort=src/token/index/abort"]
-        },
-        "nft": {
-            "outFile": "build/MyNFT.wasm",
-            "use": ["abort=src/nft/index/abort"]
-        }
-    },
-    "options": {
-        "sourceMap": false,
-        "optimizeLevel": 3,
-        "shrinkLevel": 1,
-        "converge": true,
-        "noAssert": false,
-        "enable": [
-            "sign-extension",
-            "mutable-globals",
-            "nontrapping-f2i",
-            "bulk-memory",
-            "simd",
-            "reference-types",
-            "multi-value"
-        ],
-        "runtime": "stub",
-        "memoryBase": 0,
-        "initialMemory": 1,
-        "exportStart": "start",
-        "transform": "@btc-vision/opnet-transform"
-    }
-}
-```
+AssemblyScript compiler configuration. See `setup/asconfig.json` for the full template.
 
 | Option | Description |
 |--------|-------------|

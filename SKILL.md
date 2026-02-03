@@ -67,6 +67,52 @@ From `docs/core/typescript-law/`:
 | Non-null assertion (`!`) | Use explicit null checks or optional chaining |
 | Dead/duplicate code | Design is broken if present |
 | ESLint bypasses | Never |
+| Section separator comments | See below |
+
+### FORBIDDEN: Section Separator Comments
+
+**NEVER** write comments like:
+
+```typescript
+// ==================== PRIVATE METHODS ====================
+// ---------------------- HELPERS ----------------------
+// ************* CONSTANTS *************
+// ####### INITIALIZATION #######
+```
+
+These are **lazy, unprofessional, and useless**. They add noise without value.
+
+**INSTEAD**: Use proper TSDoc for EVERY class, method, property, and function:
+
+```typescript
+/**
+ * Transfers tokens from sender to recipient.
+ *
+ * @param to - The recipient address
+ * @param amount - The amount to transfer in base units
+ * @returns True if transfer succeeded
+ * @throws {InsufficientBalanceError} If sender has insufficient balance
+ * @throws {InvalidAddressError} If recipient address is invalid
+ *
+ * @example
+ * ```typescript
+ * const success = await token.transfer(recipientAddress, 1000n);
+ * ```
+ */
+public async transfer(to: Address, amount: bigint): Promise<boolean> {
+    // ...
+}
+```
+
+**TSDoc Requirements:**
+
+- `@param` for every parameter
+- `@returns` for non-void returns
+- `@throws` for possible exceptions
+- `@example` for non-trivial methods
+- Description of what the method does, not how
+
+**Code organization comes from proper class design, not ASCII art.**
 
 ### Numeric Types
 

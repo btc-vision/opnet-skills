@@ -59,25 +59,12 @@ npm install opnet @btc-vision/transaction @btc-vision/bitcoin
 
 ## TypeScript Configuration
 
-The opnet library is written in TypeScript and requires **ES2025** or newer. Update your `tsconfig.json`:
+Copy config templates from `setup/` folder:
 
-```json
-{
-    "compilerOptions": {
-        "target": "ES2025",
-        "module": "NodeNext",
-        "moduleResolution": "NodeNext",
-        "lib": ["ES2025"],
-        "strict": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "outDir": "./build",
-        "declaration": true,
-        "resolveJsonModule": true
-    },
-    "include": ["src/**/*"],
-    "exclude": ["node_modules", "build"]
-}
+```bash
+cp setup/.prettierrc .prettierrc
+cp setup/eslint-generic.json .eslintrc.json
+cp setup/tsconfig-generic.json tsconfig.json
 ```
 
 ### Key Configuration Options
@@ -300,16 +287,7 @@ Ensure your `package.json` has `"type": "module"` for ESM:
 
 ### TypeScript Import Errors
 
-If TypeScript can't find module types, verify `tsconfig.json`:
-
-```json
-{
-    "compilerOptions": {
-        "moduleResolution": "NodeNext",
-        "esModuleInterop": true
-    }
-}
-```
+If TypeScript can't find module types, ensure you're using `setup/tsconfig-generic.json` with `moduleResolution: "NodeNext"` and `esModuleInterop: true`.
 
 ### Node.js Version
 
