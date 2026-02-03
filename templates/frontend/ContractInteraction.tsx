@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useOP20 } from '../hooks/useContract';
 import { useWallet } from '../hooks/useWallet';
 import { formatUnits } from 'opnet';
@@ -13,7 +13,7 @@ interface ContractInteractionProps {
  * Example component for interacting with an OP20 token contract.
  */
 export function ContractInteraction({ contractAddress }: ContractInteractionProps) {
-    const { address, isConnected } = useWallet();
+    const { addressObject, isConnected } = useWallet();
     const { getName, getSymbol, getDecimals, getTotalSupply, getBalanceOf, loading, error } =
         useOP20(contractAddress);
 
@@ -31,7 +31,6 @@ export function ContractInteraction({ contractAddress }: ContractInteractionProp
 
     const [balance, setBalance] = useState<bigint | null>(null);
 
-    // Load token info on mount
     useEffect(() => {
         const loadTokenInfo = async () => {
             const [name, symbol, decimals, totalSupply] = await Promise.all([
@@ -47,11 +46,10 @@ export function ContractInteraction({ contractAddress }: ContractInteractionProp
         loadTokenInfo();
     }, [getName, getSymbol, getDecimals, getTotalSupply]);
 
-    // Load balance when wallet connects
     useEffect(() => {
         const loadBalance = async () => {
-            if (isConnected && address) {
-                const bal = await getBalanceOf(address);
+            if (isConnected && addressObject) {
+                const bal = await getBalanceOf(addressObject);
                 setBalance(bal);
             } else {
                 setBalance(null);
@@ -59,9 +57,8 @@ export function ContractInteraction({ contractAddress }: ContractInteractionProp
         };
 
         loadBalance();
-    }, [isConnected, address, getBalanceOf]);
+    }, [isConnected, addressObject, getBalanceOf]);
 
-    // Format balance for display
     const formatBalance = (bal: bigint | null, decimals: number | null): string => {
         if (bal === null || decimals === null) return '0';
         return formatUnits(bal, decimals);

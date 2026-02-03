@@ -1,5 +1,12 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { useWallet } from '../hooks/useWallet';
+
+/**
+ * Truncates an address for display.
+ */
+function truncateAddress(addr: string): string {
+    return `${addr.slice(0, 8)}...${addr.slice(-6)}`;
+}
 
 /**
  * WalletConnect Component
@@ -7,19 +14,14 @@ import { useWallet } from '../hooks/useWallet';
  * Displays wallet connection button and connected wallet info.
  */
 export function WalletConnect() {
-    const { address, isConnected, isConnecting, error, walletName, connect, disconnect } =
+    const { address, isConnected, isConnecting, error, walletType, openConnectModal, disconnect } =
         useWallet();
-
-    // Truncate address for display
-    const truncateAddress = (addr: string): string => {
-        return `${addr.slice(0, 8)}...${addr.slice(-6)}`;
-    };
 
     if (isConnected && address) {
         return (
             <div className="wallet-connect connected">
                 <div className="wallet-info">
-                    <span className="wallet-name">{walletName}</span>
+                    <span className="wallet-name">{walletType}</span>
                     <span className="wallet-address">{truncateAddress(address)}</span>
                 </div>
                 <button className="btn btn-disconnect" onClick={disconnect}>
@@ -31,7 +33,7 @@ export function WalletConnect() {
 
     return (
         <div className="wallet-connect">
-            <button className="btn btn-connect" onClick={connect} disabled={isConnecting}>
+            <button className="btn btn-connect" onClick={openConnectModal} disabled={isConnecting}>
                 {isConnecting ? 'Connecting...' : 'Connect Wallet'}
             </button>
             {error && <p className="error">{error.message}</p>}
@@ -45,8 +47,8 @@ export function WalletConnect() {
  * Wraps content that requires a connected wallet.
  */
 interface WalletRequiredProps {
-    children: React.ReactNode;
-    fallback?: React.ReactNode;
+    children: ReactNode;
+    fallback?: ReactNode;
 }
 
 export function WalletRequired({ children, fallback }: WalletRequiredProps) {

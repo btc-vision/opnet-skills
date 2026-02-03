@@ -1,4 +1,3 @@
-import React from 'react';
 import { OPNetProvider } from './providers/OPNetProvider';
 import { WalletConnect, WalletRequired } from './components/WalletConnect';
 import { ContractInteraction } from './components/ContractInteraction';
