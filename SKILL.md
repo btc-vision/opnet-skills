@@ -29,6 +29,157 @@ The **checksum root** for each epoch is a cryptographic fingerprint of the entir
 3. **Verify-don't-custody** - Contracts verify L1 tx outputs, not hold funds
 4. **Partial reverts** - Only consensus layer execution reverts; Bitcoin transfers are ALWAYS valid
 5. **No gas token** - Uses Bitcoin directly
+6. **CSV timelocks are MANDATORY** - All addresses receiving BTC in swaps MUST use CSV (CheckSequenceVerify) to prevent transaction pinning attacks
+
+### Why OPNet Requires Consensus (Not Just Indexing)
+
+OPNet is fundamentally different from indexer-based protocols like Runes, Ordinals/BRC-20, or Alkanes:
+
+| Protocol | State Consistency | Can Different Nodes Disagree? |
+|----------|-------------------|-------------------------------|
+| Runes | Indexer-dependent | Yes - no consensus mechanism |
+| BRC-20 | Indexer-dependent | Yes - no consensus mechanism |
+| Alkanes | Indexer-dependent | Yes - WASM is deterministic but no consensus |
+| **OPNet** | **Cryptographic consensus** | **No - proof-of-work + attestations enforce agreement** |
+
+**Why this matters**: For applications requiring binding state consistency (like DEXs, escrows, or any multi-party coordination), indexer disagreement is catastrophic. When NativeSwap locks a reservation at a specific price, EVERY node must agree that reservation exists. OPNet's consensus layer guarantees this through cryptographic proofs.
+
+---
+
+## CSV: The Critical Anti-Pinning Mechanism (MANDATORY)
+
+### What is Transaction Pinning?
+
+Transaction pinning is a **catastrophic attack vector** that most Bitcoin protocols ignore. Here's how it works:
+
+1. When you send Bitcoin to someone, they can immediately create a transaction spending that Bitcoin, **even before the first transaction is confirmed**
+2. An attacker creates massive chains of unconfirmed transactions, all dependent on each other
+3. This makes it **impossible for miners to include your legitimate transaction** in a block
+4. Your transaction is stuck in mempool limbo while the attacker manipulates contract state
+
+### Why Pinning Destroys DEXs Without Protection
+
+**Attack scenario on an unprotected DEX:**
+
+1. Attacker pins your swap transaction, preventing confirmation
+2. Your reservation expires, but your BTC is stuck in mempool
+3. Attacker cancels their sell orders or manipulates pool state
+4. When your transaction finally confirms (if ever), no tokens remain
+5. **Result**: Attacker gets free money, you lose everything
+
+This vulnerability exists in **every Bitcoin protocol** that doesn't mandate CSV:
+- Multisig bridges can be frozen entirely with one malicious unwrap request
+- Ordinals marketplaces are vulnerable
+- Runes trading platforms are vulnerable
+- BRC-20 exchanges are vulnerable
+
+### The CSV Solution
+
+**CSV (CheckSequenceVerify, BIP 112)** completely eliminates pinning attacks:
+
+```
+Without CSV: Maximum unconfirmed chain length = UNLIMITED (attackers can pin forever)
+With CSV:    Maximum unconfirmed chain length = ZERO (must wait for confirmation)
+```
+
+By requiring all seller addresses to have a **1-block CSV timelock**, once Bitcoin arrives at those addresses, it **cannot be spent again for at least one block**. This is mathematically provable and completely closes the attack vector.
+
+### Implementation Requirement
+
+**ALL addresses receiving BTC in OPNet swaps MUST use CSV timelocks.**
+
+This is enforced at the protocol level in NativeSwap. If you're building any application that coordinates BTC transfers with smart contract state, you MUST implement CSV protection.
+
+---
+
+## NativeSwap: How to Build a Real DEX on Bitcoin
+
+NativeSwap answers the biggest unanswered question in BitcoinFi: **How do you build an actual AMM that trades native BTC for tokens, trustlessly, without custody?**
+
+### The Fundamental Problem
+
+Traditional AMMs (like Uniswap) hold both assets in a pool and use math to set prices. **Bitcoin cannot do this** - you literally cannot have a smart contract hold and programmatically transfer BTC.
+
+**Why common "solutions" fail:**
+- **Multisig wallets**: Trusted parties can collude or disappear
+- **Wrapped BTC**: Bridges become honeypots (billions stolen from bridges)
+- **Pure order books**: Terrible liquidity without market makers holding inventory
+
+### Virtual Reserves: The Solution
+
+NativeSwap realizes that an AMM doesn't need to physically hold assets - it just needs to **track the economic effect of trades**. This is similar to:
+- Banks updating ledger entries without moving physical cash
+- Futures markets trading billions in commodities without touching a barrel of oil
+- Clearinghouses settling trillions without holding underlying assets
+
+**How it works:**
+1. The contract maintains two numbers: `bitcoinReserve` and `tokenReserve`
+2. When someone buys tokens with BTC, the system records that bitcoin reserve increased and token reserve decreased
+3. The actual BTC goes **directly to sellers**, not to the contract
+4. AMM pricing only depends on the **ratio** between reserves
+5. The constant product formula (`bitcoinReserve × tokenReserve = k`) works identically whether reserves are physical or virtual
+
+### Two-Phase Commit: Why Reservations Are Necessary
+
+**Problem**: OPNet can revert smart contract execution, but it **cannot reverse Bitcoin transfers**. Once you send BTC, that transfer is governed by Bitcoin's consensus rules, not OPNet's.
+
+**Catastrophic scenario without reservations:**
+1. You see token price is 0.01 BTC/token
+2. You create a transaction sending 1 BTC to buy 100 tokens
+3. During 10-20 minute confirmation time, other trades push price to 0.02 BTC/token
+4. On Ethereum, your transaction would revert and return your ETH
+5. On Bitcoin, **your BTC transfer already happened** - the contract can't send it back
+6. You lose your BTC and get zero tokens
+
+**The reservation system (two-phase commit):**
+
+| Phase | What Happens |
+|-------|--------------|
+| **Phase 1: Reserve** | Prove you control BTC (UTXOs as inputs, sent back to yourself), pay small fee, **price is locked in consensus state** |
+| **Phase 2: Execute** | Send exact BTC amount to providers (up to 200 addresses atomically), guaranteed execution at locked price |
+
+**Benefits:**
+- **No slippage risk**: Price locked at reservation time
+- **No front-running**: Once price is locked in OPNet state, no one can change it
+- **Partial fills**: Automatically coordinate payments to up to 200 providers in single atomic transaction (impossible on any other Bitcoin protocol)
+
+### Queue Impact: Accounting for Pending Sells
+
+Sellers queue tokens at the prevailing AMM price. The Queue Impact mechanism adjusts effective token reserve using **logarithmic scaling**:
+
+**Why logarithmic?**
+- Markets process information multiplicatively
+- Doubling queue from 100→200 tokens has same psychological impact as 1000→2000
+- First sellers signal strong selling pressure; additional sellers have diminishing marginal impact
+- Matches empirical observations from market microstructure research
+
+### Slashing: Making Queue Manipulation Economically Irrational
+
+Without penalties, Queue Impact would be worthless:
+1. Attacker adds massive fake sell orders → crashes price via Queue Impact
+2. Attacker buys cheap tokens
+3. Attacker cancels their sells
+4. Profit from manipulation
+
+**The slashing mechanism:**
+- **Immediate cancellation**: 50% penalty (exceeds any realistic manipulation profit)
+- **Extended squatting**: Escalates to 90% penalty
+- **Slashed tokens return to pool**: Attempted attacks actually improve liquidity
+
+This makes manipulation economically irrational and ensures queue depth is a reliable market signal.
+
+### Summary: Why Each Component Is Necessary
+
+| Component | Constraint It Addresses |
+|-----------|------------------------|
+| Virtual reserves | Smart contracts can't custody BTC on Bitcoin |
+| Reservations (two-phase commit) | OPNet controls contract state, not Bitcoin transfers |
+| Queue Impact | Pending orders affect market psychology and pricing |
+| Slashing | Queue Impact would be manipulable without penalties |
+| CSV timelocks | UTXO chains are vulnerable to transaction pinning |
+| OPNet consensus | Indexers can't provide binding state consistency |
+
+**Remove any component and the system either becomes exploitable or stops functioning as an AMM.**
 
 ---
 
@@ -257,6 +408,16 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 - [ ] UTXO selection vulnerabilities
 - [ ] Fee sniping
 - [ ] Dust attacks
+- [ ] **Transaction pinning attacks** - MUST use CSV timelocks
+- [ ] **Unconfirmed transaction chains** - Verify CSV enforcement
+
+#### DEX/Swap-specific
+
+- [ ] Front-running / MEV attacks
+- [ ] Price manipulation via queue flooding
+- [ ] Reservation expiry edge cases
+- [ ] Partial fill coordination
+- [ ] Slashing mechanism bypass attempts
 
 ---
 
@@ -365,7 +526,6 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 | `docs/core-transaction-transaction-building.md` | Building transactions |
 | `docs/core-transaction-offline-transaction-signing.md` | Offline signing |
 | `docs/core-transaction-addresses-P2OP.md` | P2OP address format |
-| `docs/core-transaction-addresses-P2WDA.md` | P2WDA address format |
 | `docs/core-transaction-quantum-support-README.md` | Quantum overview |
 | `docs/core-transaction-quantum-support-01-introduction.md` | Quantum intro |
 | `docs/core-transaction-quantum-support-02-mnemonic-and-wallet.md` | Quantum wallet |
@@ -445,7 +605,12 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 
 | File | Description |
 |------|-------------|
-| `docs/clients-bitcoin-README.md` | Bitcoin library |
+| `docs/clients-bitcoin-README.md` | Bitcoin library overview |
+| `docs/clients-bitcoin-psbt.md` | PSBT class, signing, finalization |
+| `docs/clients-bitcoin-payments.md` | Payment types (P2TR, P2WPKH, P2WSH, P2SH, P2OP) |
+| `docs/clients-bitcoin-script.md` | Script building, opcodes |
+| `docs/clients-bitcoin-address.md` | Address encoding/decoding |
+| `docs/clients-bitcoin-transaction.md` | Transaction class |
 | `docs/clients-bip32-README.md` | BIP32 HD derivation |
 | `docs/clients-bip32-QUANTUM.md` | Quantum support |
 | `docs/clients-ecpair-README.md` | EC key pairs |
@@ -683,3 +848,5 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 6. **Contracts don't hold BTC** - Verify-don't-custody pattern
 7. **Threading for performance** - Sequential = unacceptable
 8. **NO section separator comments** - Use TSDoc instead
+9. **CSV timelocks are MANDATORY** - All swap recipient addresses MUST use CSV to prevent pinning attacks
+10. **OPNet is consensus, not indexing** - Binding state consistency requires cryptographic guarantees
