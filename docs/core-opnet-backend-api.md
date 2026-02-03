@@ -150,7 +150,7 @@ class OPNetAPI {
     constructor() {
         this.app = new HyperExpress.Server();
         this.provider = new JSONRpcProvider(
-            'https://api.opnet.org/v1/json-rpc',
+            'https://mainnet.opnet.org/v1/json-rpc',
             networks.bitcoin
         );
         this.setupRoutes();
@@ -284,7 +284,7 @@ class OPNetWebSocket {
 
     constructor() {
         this.provider = new JSONRpcProvider(
-            'https://api.opnet.org/v1/json-rpc',
+            'https://mainnet.opnet.org/v1/json-rpc',
             networks.bitcoin
         );
 
@@ -462,7 +462,7 @@ class OPNetProductionAPI {
         });
 
         this.provider = new JSONRpcProvider(
-            process.env.OPNET_RPC_URL || 'https://api.opnet.org/v1/json-rpc',
+            process.env.OPNET_RPC_URL || 'https://mainnet.opnet.org/v1/json-rpc',
             networks.bitcoin
         );
 

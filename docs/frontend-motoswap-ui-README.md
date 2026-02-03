@@ -275,7 +275,7 @@ import { Network, networks } from '@btc-vision/bitcoin';
 // JSON-RPC Provider (recommended for most use cases)
 const createProvider = (network: Network): JSONRpcProvider => {
     const rpcUrl = network === networks.bitcoin
-        ? 'https://api.opnet.org/v1/json-rpc'
+        ? 'https://mainnet.opnet.org/v1/json-rpc'
         : 'https://testnet.opnet.org/v1/json-rpc';
 
     return new JSONRpcProvider(rpcUrl, network);
@@ -284,7 +284,7 @@ const createProvider = (network: Network): JSONRpcProvider => {
 // WebSocket Provider (for real-time updates)
 const createWsProvider = (network: Network): WebsocketProvider => {
     const wsUrl = network === networks.bitcoin
-        ? 'wss://api.opnet.org/v1/ws'
+        ? 'wss://mainnet.opnet.org/v1/ws'
         : 'wss://testnet.opnet.org/v1/ws';
 
     return new WebsocketProvider(wsUrl, network);
@@ -711,7 +711,7 @@ class ProviderManager {
 
         if (!this.providers.has(key)) {
             const rpcUrl = key === 'mainnet'
-                ? 'https://api.opnet.org/v1/json-rpc'
+                ? 'https://mainnet.opnet.org/v1/json-rpc'
                 : 'https://testnet.opnet.org/v1/json-rpc';
             this.providers.set(key, new JSONRpcProvider(rpcUrl, network));
         }

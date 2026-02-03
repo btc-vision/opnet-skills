@@ -1,97 +1,120 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { JSONRpcProvider, WebSocketRpcProvider } from 'opnet';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { JSONRpcProvider } from 'opnet';
+import { networks, Network } from '@btc-vision/bitcoin';
 
-// ==================== TYPES ====================
+/**
+ * Available OPNet networks with their configurations.
+ */
+export const OPNetNetworks = {
+    mainnet: {
+        url: 'https://mainnet.opnet.org',
+        network: networks.bitcoin,
+    },
+    regtest: {
+        url: 'https://regtest.opnet.org',
+        network: networks.regtest,
+    },
+} as const;
+
+export type OPNetNetworkId = keyof typeof OPNetNetworks;
 
 interface OPNetContextType {
     provider: JSONRpcProvider | null;
-    wsProvider: WebSocketRpcProvider | null;
+    network: Network;
+    networkId: OPNetNetworkId;
     isConnected: boolean;
-    network: 'mainnet' | 'regtest';
-    switchNetwork: (network: 'mainnet' | 'regtest') => void;
+    error: Error | null;
+    switchNetwork: (networkId: OPNetNetworkId) => void;
 }
 
 interface OPNetProviderProps {
     children: ReactNode;
-    defaultNetwork?: 'mainnet' | 'regtest';
+    defaultNetwork?: OPNetNetworkId;
 }
-
-// ==================== CONSTANTS ====================
-
-const NETWORKS = {
-    mainnet: {
-        rpc: 'https://api.opnet.org',
-        ws: 'wss://api.opnet.org/ws',
-    },
-    regtest: {
-        rpc: 'https://regtest.opnet.org',
-        ws: 'wss://regtest.opnet.org/ws',
-    },
-};
-
-// ==================== CONTEXT ====================
 
 const OPNetContext = createContext<OPNetContextType | undefined>(undefined);
 
-// ==================== PROVIDER ====================
-
+/**
+ * Provider component for OPNet connectivity.
+ * Wraps your app to provide OPNet provider access throughout the component tree.
+ *
+ * @param children - Child components
+ * @param defaultNetwork - Initial network to connect to
+ *
+ * @example
+ * ```tsx
+ * <OPNetProvider defaultNetwork="mainnet">
+ *   <App />
+ * </OPNetProvider>
+ * ```
+ */
 export function OPNetProvider({ children, defaultNetwork = 'mainnet' }: OPNetProviderProps) {
-    const [network, setNetwork] = useState<'mainnet' | 'regtest'>(defaultNetwork);
+    const [networkId, setNetworkId] = useState<OPNetNetworkId>(defaultNetwork);
     const [provider, setProvider] = useState<JSONRpcProvider | null>(null);
-    const [wsProvider, setWsProvider] = useState<WebSocketRpcProvider | null>(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const providerRef = useRef<JSONRpcProvider | null>(null);
 
-    // Initialize providers when network changes
+    const config = OPNetNetworks[networkId];
+    const network = config.network;
+
     useEffect(() => {
-        const initProviders = async () => {
+        const initProvider = async () => {
+            setError(null);
             try {
-                // Create JSON-RPC provider
-                const rpcProvider = new JSONRpcProvider(NETWORKS[network].rpc);
+                const rpcProvider = new JSONRpcProvider(config.url, config.network);
+                providerRef.current = rpcProvider;
                 setProvider(rpcProvider);
 
-                // Create WebSocket provider for real-time updates
-                const wsRpcProvider = new WebSocketRpcProvider(NETWORKS[network].ws);
-                setWsProvider(wsRpcProvider);
-
-                // Test connection
-                const blockHeight = await rpcProvider.getBlockHeight();
-                console.log(`Connected to OPNet ${network} at block ${blockHeight}`);
-
+                await rpcProvider.getBlockNumber();
                 setIsConnected(true);
-            } catch (error) {
-                console.error('Failed to connect to OPNet:', error);
+            } catch (err) {
+                const initError = err instanceof Error ? err : new Error(String(err));
+                setError(initError);
                 setIsConnected(false);
             }
         };
 
-        initProviders();
+        initProvider();
 
-        // Cleanup on unmount or network change
         return () => {
-            wsProvider?.disconnect();
+            providerRef.current?.close();
         };
-    }, [network]);
+    }, [config]);
 
-    const switchNetwork = (newNetwork: 'mainnet' | 'regtest') => {
-        if (newNetwork !== network) {
+    const switchNetwork = (newNetworkId: OPNetNetworkId) => {
+        if (newNetworkId !== networkId) {
             setIsConnected(false);
-            setNetwork(newNetwork);
+            setNetworkId(newNetworkId);
         }
     };
 
     const value: OPNetContextType = {
         provider,
-        wsProvider,
-        isConnected,
         network,
+        networkId,
+        isConnected,
+        error,
         switchNetwork,
     };
 
     return <OPNetContext.Provider value={value}>{children}</OPNetContext.Provider>;
 }
 
-// ==================== HOOK ====================
-
+/**
+ * Hook to access the OPNet provider context.
+ *
+ * @returns The OPNet context containing provider, network, and connection state
+ * @throws Error if used outside of OPNetProvider
+ *
+ * @example
+ * ```tsx
+ * function MyComponent() {
+ *   const { provider, isConnected, networkId } = useOPNet();
+ *   // ...
+ * }
+ * ```
+ */
 export function useOPNet(): OPNetContextType {
     const context = useContext(OPNetContext);
     if (context === undefined) {
