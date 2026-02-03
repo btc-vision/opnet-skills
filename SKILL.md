@@ -94,51 +94,98 @@ This is enforced at the protocol level in NativeSwap. If you're building any app
 
 ## The Two Address Systems (CRITICAL for Airdrops)
 
-OPNet operates with **two fundamentally different address systems**:
+### Why OPNet Airdrops Work Differently Than Ethereum
+
+On **Ethereum**, there's one address format. You can loop through addresses and call `transfer(to, amount)` because ERC20 contracts just decrement sender balance and increment recipient balance using the same address type.
+
+On **OPNet**, contract balances are keyed by **ML-DSA public key hashes** (32-byte quantum-resistant addresses), but users are typically known externally by their **Bitcoin addresses** (Taproot P2TR, tweaked public keys). These are **completely different cryptographic systems** with no inherent link between them.
 
 | Address System | Format | Used For |
 |---------------|--------|----------|
-| **Bitcoin Address** | Taproot P2TR (tweaked public key) | External identity, Bitcoin transactions |
+| **Bitcoin Address** | Taproot P2TR (`bc1p...`) | External identity, what you have in your airdrop list |
 | **OPNet Address** | ML-DSA public key hash (32 bytes) | Contract balances, internal state |
 
-### The Core Problem
+### ⚠️ WHY YOU CANNOT JUST LOOP AND TRANSFER
 
-Contract balances are keyed by **ML-DSA addresses**, but external users are typically known only by their **Bitcoin addresses**. These have **no inherent link** until the user explicitly creates one.
-
-**The Banana Locker Analogy:**
-- You know 300 monkeys by their **face** (Bitcoin address)
-- Lockers open with a **secret handshake** (ML-DSA key)
-- You label lockers with faces, but they need handshakes to open
-- When a monkey shows up, they show face AND do handshake to link them
-
-### Why You Cannot Directly Airdrop to Bitcoin Addresses
-
-If you have a list of Bitcoin addresses (e.g., existing token holders) and want to airdrop:
-- **What you have**: `bc1p...` Bitcoin addresses
-- **What contracts need**: ML-DSA addresses for balance storage
-- **The problem**: No way to know which ML-DSA maps to which Bitcoin address
-
-### Solutions
-
-**Solution 1: Signature Verification in Contracts**
-1. Deploy contract storing: `tweakedPubKey => amount`
-2. User calls `claim()` with signature proving ownership
-3. Contract verifies signature, links ML-DSA to allocation, transfers tokens
+If you have a list of Bitcoin addresses from token holders or snapshot participants:
 
 ```typescript
-// Frontend: User signs message
-import { MessageSigner } from '@btc-vision/transaction';
-const signed = MessageSigner.tweakAndSignMessage(wallet.keypair, claimMessage);
-// Include signature in calldata
+// ❌ WRONG - THIS DOES NOT WORK
+for (const btcAddress of airdropList) {
+    await token.transfer(btcAddress, amount);  // IMPOSSIBLE
+}
 ```
 
-**Solution 2: Pre-Converting Keys**
-- Only works if you have users' ML-DSA public keys (not just Bitcoin addresses)
-- OPNet address = SHA256(ML-DSA public key)
+**The contract literally cannot credit tokens to a Bitcoin address directly.** The contract storage uses ML-DSA addresses, not Bitcoin addresses. The mapping between them only exists once a user explicitly proves ownership of both keys together.
 
-**The unlock transaction is the moment where the user proves "this face belongs to this handshake."**
+### ✅ THE CORRECT SOLUTION: Claim-Based Airdrop Contract
 
-See `docs/core-opnet-address-systems-airdrop-pattern.md` for complete implementation guide.
+Airdrops on OPNet are done via a **smart contract** with a claim pattern:
+
+**1. Deploy an airdrop contract** that stores allocations keyed by tweaked public key:
+```typescript
+// Contract storage
+mapping(tweakedPubKey => amount)  // Store: which Bitcoin addresses get how much
+mapping(tweakedPubKey => claimed) // Track: has this allocation been claimed
+```
+
+**2. Users call `claim()`** providing a signature that proves they control that Bitcoin address:
+```typescript
+// User's frontend (browser) - OP_WALLET signs automatically
+const message = `Claim airdrop for ${contractAddress}`;
+const signed = await MessageSigner.tweakAndSignMessageAuto(message);
+
+// Submit to contract with signature in calldata
+await airdropContract.claim(signature, messageHash);
+```
+
+**3. Contract verifies and transfers:**
+```typescript
+// Contract logic
+public claim(calldata: Calldata): BytesWriter {
+    const signature = calldata.readBytes(64);
+    const messageHash = calldata.readBytes(32);
+
+    // Verify signature proves caller owns the tweaked public key
+    if (!Blockchain.verifySignature(Blockchain.tx.origin, signature, messageHash, false)) {
+        throw new Revert('Invalid signature');
+    }
+
+    // Get allocation for this tweaked public key
+    const tweakedKey = Blockchain.tx.origin.tweakedPublicKey;
+    const amount = this.allocations.get(tweakedKey);
+
+    // Transfer to caller's ML-DSA address (now linked!)
+    this._mint(Blockchain.tx.sender, amount);
+    this.claimed.set(tweakedKey, true);
+}
+```
+
+**This is the "unlock transaction"** - the moment where the user proves ownership of both identities (Bitcoin address AND ML-DSA address), allowing the contract to link them and credit the tokens.
+
+### The Banana Locker Analogy
+
+- You know 300 monkeys by their **face** (Bitcoin address)
+- Lockers open with a **secret handshake** (ML-DSA key)
+- You label lockers with faces and put bananas inside
+- When a monkey shows up, they show face AND do handshake
+- System learns: "this face = this handshake" and gives them their banana
+- **The banana was always "theirs" but they couldn't access it until they linked face to handshake**
+
+### Alternative: Direct Transfer (Only If You Have ML-DSA Keys)
+
+If you already have users' **ML-DSA public keys** (not Bitcoin addresses), you can pre-compute OPNet addresses:
+
+```typescript
+// OPNet address = SHA256(ML-DSA public key)
+const opnetAddress = sha256(userMldsaPublicKey);
+// Now you CAN transfer directly
+await token.transfer(opnetAddress, amount);
+```
+
+**This is rare** - most external data sources (snapshots, holder lists) only have Bitcoin addresses.
+
+See `docs/core-opnet-address-systems-airdrop-pattern.md` for complete contract implementation.
 
 ---
 
