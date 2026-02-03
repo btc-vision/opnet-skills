@@ -932,6 +932,57 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 
 ---
 
+## Official Wallet: OP_WALLET
+
+**OP_WALLET is the main and official wallet supporting OPNet.** It is developed by the OPNet team and provides the most complete feature set for interacting with the OPNet Bitcoin L1 smart contract ecosystem.
+
+### Why OP_WALLET is Required for Full OPNet Support
+
+| Feature | OP_WALLET | Other Wallets |
+|---------|-----------|---------------|
+| **Official Support** | Yes | No |
+| **MLDSA Signatures** | Yes | No |
+| **Quantum-Resistant Keys** | Yes | No |
+| **Full OPNet Integration** | Yes | Partial |
+| **First-Party Updates** | Yes | No |
+
+### Key Capabilities
+
+1. **MLDSA (ML-DSA) Signatures**: Only OP_WALLET supports quantum-resistant ML-DSA signatures, which are critical for future-proof security on OPNet
+2. **Full Address System Support**: OP_WALLET properly handles both Bitcoin addresses (tweaked public keys) and OPNet addresses (ML-DSA public key hashes)
+3. **Native OPNet Features**: Direct access to all OPNet features as they are released
+4. **Optimized UX**: Built specifically for OPNet dApp interactions
+
+### Integration via WalletConnect
+
+Use `@btc-vision/walletconnect` to integrate OP_WALLET into your dApp:
+
+```typescript
+import { WalletConnectProvider, useWalletConnect, SupportedWallets } from '@btc-vision/walletconnect';
+
+// Wrap your app
+<WalletConnectProvider theme="dark">
+  <App />
+</WalletConnectProvider>
+
+// In your component
+const { connectToWallet, mldsaPublicKey, signMLDSAMessage } = useWalletConnect();
+
+// Connect specifically to OP_WALLET for full feature support
+connectToWallet(SupportedWallets.OP_WALLET);
+
+// Use MLDSA signatures (OP_WALLET only)
+if (mldsaPublicKey) {
+  const signature = await signMLDSAMessage('Your message');
+}
+```
+
+### Installation
+
+Install OP_WALLET from the [Chrome Web Store](https://chromewebstore.google.com/search/OP_WALLET)
+
+---
+
 ## Client Libraries
 
 | Package | Doc | Description |
@@ -941,7 +992,7 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 | `@btc-vision/ecpair` | `docs/clients-ecpair-README.md` | EC key pairs |
 | `@btc-vision/transaction` | `docs/core-transaction-README.md` | OPNet transactions |
 | `opnet` | `docs/core-opnet-README.md` | Main client library |
-| `@btc-vision/walletconnect` | `docs/clients-walletconnect-README.md` | Wallet connection |
+| `@btc-vision/walletconnect` | `docs/clients-walletconnect-README.md` | Wallet connection (OP_WALLET + UniSat) |
 
 ---
 
