@@ -62,7 +62,7 @@ This document covers package versions, configurations, and project setup for ALL
         "@btc-vision/opnet-transform": "^0.2.1"
     },
     "overrides": {
-        "@noble/hashes": "2.1.0"
+        "@noble/hashes": "2.0.1"
     }
 }
 ```
@@ -85,7 +85,7 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
         "@types/node": "^25.0.0"
     },
     "overrides": {
-        "@noble/hashes": "2.1.0"
+        "@noble/hashes": "2.0.1"
     }
 }
 ```
@@ -111,7 +111,7 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
         "typescript": "^5.9.3"
     },
     "overrides": {
-        "@noble/hashes": "2.1.0"
+        "@noble/hashes": "2.0.1"
     }
 }
 ```
