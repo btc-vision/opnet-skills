@@ -1,5 +1,5 @@
 ---
-name: opnet-development
+name: opnet
 description: Build on OPNet - Bitcoin L1 consensus layer for trustless smart contracts. Use when building AssemblyScript smart contracts, TypeScript libraries, React frontends, or Node plugins for OPNet. Triggers on Bitcoin smart contract development, OP20 tokens, OP721 NFTs, WebAssembly contracts, verify-dont-custody patterns, epoch mining, and OPNet architecture questions.
 ---
 
@@ -7,24 +7,152 @@ description: Build on OPNet - Bitcoin L1 consensus layer for trustless smart con
 
 A comprehensive skill for building on OPNet - Bitcoin's L1 consensus layer for trustless smart contracts.
 
-## ⚠️ STEP 1: READ THE GUIDELINES (MANDATORY)
+---
 
-**Before writing ANY code, you MUST read the relevant guidelines in `/root/opnet-skills/guidelines/`:**
+# STOP - MANDATORY READING BEFORE ANY CODE
 
-| Guideline | When to Read |
-|-----------|--------------|
-| `setup-guidelines.md` | **ALWAYS READ FIRST** - Package versions, configs for ALL project types |
-| `contracts-guidelines.md` | When writing AssemblyScript smart contracts |
-| `unit-testing-guidelines.md` | When writing unit tests (TypeScript, NOT AssemblyScript) |
-| `frontend-guidelines.md` | When building React/Vite frontends |
+**IF YOU WRITE CODE WITHOUT READING THE REQUIRED DOCS, YOU WILL CREATE BROKEN, EXPLOITABLE CODE.**
 
-**IF YOU SKIP THE GUIDELINES, YOU WILL MAKE MISTAKES.**
+OPNet development has:
+- **Beta package versions** that change frequently - guessing versions = build failures
+- **Strict TypeScript rules** - violations = security vulnerabilities
+- **Platform-specific patterns** - wrong patterns = exploits, gas attacks, data loss
 
-The guidelines contain:
-- **Exact package versions** (beta versions - DO NOT GUESS)
-- **Correct configuration** (asconfig.json, tsconfig.json, ESLint)
-- **Required patterns** (factory functions, SafeMath, caching)
-- **Common mistakes** with fixes
+**Guidelines are SUMMARIES. The `docs/` folder contains the ACTUAL implementation patterns.**
+
+You MUST read the docs files listed below IN ORDER before writing ANY code.
+
+---
+
+## MANDATORY READING ORDER BY PROJECT TYPE
+
+### For ALL Projects (Read First, Every Time)
+
+| Order | File | Why |
+|-------|------|-----|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | **THE LAW** - Type system rules, forbidden constructs, required patterns |
+| 2 | `guidelines/setup-guidelines.md` | Package versions, tsconfig, ESLint configs |
+
+---
+
+### For Smart Contracts (AssemblyScript)
+
+**Read ALL of these BEFORE writing contract code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules (applies to AS too) |
+| 2 | `guidelines/setup-guidelines.md` | Package versions, asconfig.json |
+| 3 | `guidelines/contracts-guidelines.md` | Summary of contract patterns |
+| 4 | `docs/contracts-btc-runtime-README.md` | Runtime overview |
+| 5 | `docs/contracts-btc-runtime-getting-started-installation.md` | Setup |
+| 6 | `docs/contracts-btc-runtime-getting-started-first-contract.md` | Entry point, factory pattern |
+| 7 | `docs/contracts-btc-runtime-getting-started-project-structure.md` | Directory layout |
+| 8 | `docs/contracts-btc-runtime-core-concepts-storage-system.md` | Storage types, pointers |
+| 9 | `docs/contracts-btc-runtime-core-concepts-pointers.md` | Pointer allocation |
+| 10 | `docs/contracts-btc-runtime-api-reference-safe-math.md` | SafeMath (MANDATORY for u256) |
+| 11 | `docs/contracts-btc-runtime-gas-optimization.md` | Gas patterns, forbidden loops |
+| 12 | `docs/contracts-btc-runtime-core-concepts-security.md` | Security checklist |
+
+**For OP20 tokens, also read:**
+- `docs/contracts-btc-runtime-api-reference-op20.md`
+- `docs/contracts-btc-runtime-contracts-op20-token.md`
+
+**For OP721 NFTs, also read:**
+- `docs/contracts-btc-runtime-api-reference-op721.md`
+- `docs/contracts-btc-runtime-contracts-op721-nft.md`
+
+---
+
+### For Frontend (React/Vite)
+
+**Read ALL of these BEFORE writing frontend code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 2 | `guidelines/setup-guidelines.md` | Package versions, vite config |
+| 3 | `guidelines/frontend-guidelines.md` | Summary of frontend patterns |
+| 4 | `docs/core-opnet-README.md` | Client library overview |
+| 5 | `docs/core-opnet-getting-started-installation.md` | Installation |
+| 6 | `docs/core-opnet-getting-started-quick-start.md` | Quick start |
+| 7 | `docs/core-opnet-providers-json-rpc-provider.md` | Provider setup |
+| 8 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
+| 9 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
+| 10 | `docs/core-opnet-contracts-simulating-calls.md` | Read operations |
+| 11 | `docs/core-opnet-contracts-sending-transactions.md` | Write operations |
+| 12 | `docs/clients-walletconnect-README.md` | Wallet connection |
+| 13 | `docs/frontend-motoswap-ui-README.md` | **THE STANDARD** - Reference implementation |
+
+---
+
+### For Backend/API (Node.js)
+
+**Read ALL of these BEFORE writing backend code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 2 | `guidelines/setup-guidelines.md` | Package versions |
+| 3 | `guidelines/backend-guidelines.md` | Summary of backend patterns |
+| 4 | `docs/core-opnet-backend-api.md` | **REQUIRED FRAMEWORKS** - hyper-express, uWebSockets.js |
+| 5 | `docs/core-opnet-providers-json-rpc-provider.md` | Provider setup |
+| 6 | `docs/core-opnet-providers-threaded-http.md` | Threading (MANDATORY) |
+| 7 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
+| 8 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
+
+**FORBIDDEN FRAMEWORKS:** Express, Fastify, Koa, Hapi, Socket.io - use hyper-express and uWebSockets.js only.
+
+---
+
+### For Plugins (OPNet Node)
+
+**Read ALL of these BEFORE writing plugin code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 2 | `guidelines/setup-guidelines.md` | Package versions |
+| 3 | `guidelines/plugin-guidelines.md` | Summary of plugin patterns |
+| 4 | `docs/core-OIP-OIP-0003.md` | **PLUGIN SPECIFICATION** - Full spec |
+| 5 | `docs/plugins-plugin-sdk-README.md` | SDK reference |
+| 6 | `docs/plugins-opnet-node-README.md` | Node integration |
+
+**CRITICAL:** You MUST implement `onReorg()` to handle chain reorganizations or your data will be inconsistent.
+
+---
+
+### For Unit Tests (TypeScript)
+
+**Read ALL of these BEFORE writing test code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules |
+| 2 | `guidelines/setup-guidelines.md` | Package versions |
+| 3 | `guidelines/unit-testing-guidelines.md` | Summary of test patterns |
+| 4 | `docs/testing-unit-test-framework-README.md` | Framework overview |
+| 5 | `docs/testing-opnet-unit-test-README.md` | Test setup |
+| 6 | `docs/testing-opnet-unit-test-docs-Blockchain.md` | Blockchain mocking |
+| 7 | `docs/testing-opnet-unit-test-docs-ContractRuntime.md` | Contract runtime |
+
+**CRITICAL:** Unit tests are TypeScript (NOT AssemblyScript). They have a SEPARATE package.json.
+
+---
+
+## VERIFICATION CHECKPOINT
+
+**BEFORE writing ANY code, confirm:**
+
+- [ ] I have read `docs/core-typescript-law-CompleteLaw.md` completely
+- [ ] I have read ALL docs files listed for my project type above
+- [ ] I know the exact package versions from `guidelines/setup-guidelines.md`
+- [ ] I understand the forbidden constructs (`any`, `!`, `while` loops in contracts, etc.)
+- [ ] I understand the required patterns (caching, threading, SafeMath, etc.)
+
+**If you cannot check ALL boxes, GO BACK AND READ THE DOCS.**
+
+**Code written without reading the docs will be broken. There are no shortcuts.**
 
 ---
 
@@ -126,12 +254,12 @@ On **OPNet**, contract balances are keyed by **ML-DSA public key hashes** (32-by
 | **Bitcoin Address** | Taproot P2TR (`bc1p...`) | External identity, what you have in your airdrop list |
 | **OPNet Address** | ML-DSA public key hash (32 bytes) | Contract balances, internal state |
 
-### ⚠️ WHY YOU CANNOT JUST LOOP AND TRANSFER
+### WHY YOU CANNOT JUST LOOP AND TRANSFER
 
 If you have a list of Bitcoin addresses from token holders or snapshot participants:
 
 ```typescript
-// ❌ WRONG - THIS DOES NOT WORK
+// WRONG - THIS DOES NOT WORK
 for (const btcAddress of airdropList) {
     await token.transfer(btcAddress, amount);  // IMPOSSIBLE
 }
@@ -139,7 +267,7 @@ for (const btcAddress of airdropList) {
 
 **The contract literally cannot credit tokens to a Bitcoin address directly.** The contract storage uses ML-DSA addresses, not Bitcoin addresses. The mapping between them only exists once a user explicitly proves ownership of both keys together.
 
-### ✅ THE CORRECT SOLUTION: Claim-Based Airdrop Contract
+### THE CORRECT SOLUTION: Claim-Based Airdrop Contract
 
 Airdrops on OPNet are done via a **smart contract** with a claim pattern:
 

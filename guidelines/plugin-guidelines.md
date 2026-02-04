@@ -9,14 +9,15 @@ This document covers plugin architecture, lifecycle hooks, database access, reor
 ## Table of Contents
 
 1. [TypeScript Law (MANDATORY)](#typescript-law-mandatory)
-2. [Package Versions](#package-versions)
-3. [Plugin Structure](#plugin-structure)
-4. [Plugin Manifest](#plugin-manifest)
-5. [Lifecycle Hooks](#lifecycle-hooks)
-6. [Database Access](#database-access)
-7. [Reorg Handling (CRITICAL)](#reorg-handling-critical)
-8. [Common Plugin Mistakes](#common-plugin-mistakes)
-9. [Security Checklist](#security-checklist)
+2. [Mandatory Reading Order](#mandatory-reading-order)
+3. [Package Versions](#package-versions)
+4. [Plugin Structure](#plugin-structure)
+5. [Plugin Manifest](#plugin-manifest)
+6. [Lifecycle Hooks](#lifecycle-hooks)
+7. [Database Access](#database-access)
+8. [Reorg Handling (CRITICAL)](#reorg-handling-critical)
+9. [Common Plugin Mistakes](#common-plugin-mistakes)
+10. [Security Checklist](#security-checklist)
 
 ---
 
@@ -70,6 +71,25 @@ This document covers plugin architecture, lifecycle hooks, database access, reor
 ```
 
 **IF YOUR PROJECT DOES NOT MATCH THESE SETTINGS, FIX IT BEFORE WRITING CODE.**
+
+---
+
+## Mandatory Reading Order
+
+**This guideline is a SUMMARY. You MUST read the following docs files IN ORDER before writing plugin code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 2 | `guidelines/setup-guidelines.md` | Package versions |
+| 3 | `guidelines/plugin-guidelines.md` | This file - summary of patterns |
+| 4 | `docs/core-OIP-OIP-0003.md` | **PLUGIN SPECIFICATION** - Full spec |
+| 5 | `docs/plugins-plugin-sdk-README.md` | SDK reference |
+| 6 | `docs/plugins-opnet-node-README.md` | Node integration |
+
+**CRITICAL:** You MUST implement `onReorg()` to handle chain reorganizations or your data will be inconsistent.
+
+**IF YOU SKIP THESE DOCS, YOUR PLUGIN WILL HAVE DATA CONSISTENCY ISSUES.**
 
 ---
 

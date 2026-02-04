@@ -9,14 +9,15 @@
 ## Table of Contents
 
 1. [TypeScript Law (MANDATORY)](#typescript-law-mandatory)
-2. [Test Environment Overview](#test-environment-overview)
-3. [Project Structure](#project-structure)
-4. [Test Dependencies](#test-dependencies)
-5. [Test Configuration](#test-configuration)
-6. [Test Patterns](#test-patterns)
-7. [ContractRuntime Wrapper](#contractruntime-wrapper)
-8. [Blockchain Mocking](#blockchain-mocking)
-9. [Common Test Mistakes](#common-test-mistakes)
+2. [Mandatory Reading Order](#mandatory-reading-order)
+3. [Test Environment Overview](#test-environment-overview)
+4. [Project Structure](#project-structure)
+5. [Test Dependencies](#test-dependencies)
+6. [Test Configuration](#test-configuration)
+7. [Test Patterns](#test-patterns)
+8. [ContractRuntime Wrapper](#contractruntime-wrapper)
+9. [Blockchain Mocking](#blockchain-mocking)
+10. [Common Test Mistakes](#common-test-mistakes)
 
 ---
 
@@ -41,6 +42,26 @@
 | `number` for large values | 53-bit precision loss | `bigint` for satoshis, IDs, heights |
 
 **Read the full TypeScript Law before proceeding.**
+
+---
+
+## Mandatory Reading Order
+
+**This guideline is a SUMMARY. You MUST read the following docs files IN ORDER before writing test code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules |
+| 2 | `guidelines/setup-guidelines.md` | Package versions |
+| 3 | `guidelines/unit-testing-guidelines.md` | This file - summary of patterns |
+| 4 | `docs/testing-unit-test-framework-README.md` | Framework overview |
+| 5 | `docs/testing-opnet-unit-test-README.md` | Test setup |
+| 6 | `docs/testing-opnet-unit-test-docs-Blockchain.md` | Blockchain mocking |
+| 7 | `docs/testing-opnet-unit-test-docs-ContractRuntime.md` | Contract runtime |
+
+**CRITICAL:** Unit tests are TypeScript (NOT AssemblyScript). They have a SEPARATE package.json.
+
+**IF YOU SKIP THESE DOCS, YOUR TESTS WILL NOT WORK.**
 
 ---
 

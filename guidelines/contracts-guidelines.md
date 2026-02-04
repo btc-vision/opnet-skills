@@ -9,13 +9,14 @@ This document covers contract code patterns, storage, SafeMath, and common mista
 ## Table of Contents
 
 1. [TypeScript Law (MANDATORY)](#typescript-law-mandatory)
-2. [Contract Entry Point](#contract-entry-point)
-3. [Contract Class Patterns](#contract-class-patterns)
-4. [Storage and Pointers](#storage-and-pointers)
-5. [u256 and SafeMath](#u256-and-safemath)
-6. [Common Imports](#common-imports)
-7. [Gas Optimization](#gas-optimization)
-8. [Common Contract Mistakes](#common-contract-mistakes)
+2. [Mandatory Reading Order](#mandatory-reading-order)
+3. [Contract Entry Point](#contract-entry-point)
+4. [Contract Class Patterns](#contract-class-patterns)
+5. [Storage and Pointers](#storage-and-pointers)
+6. [u256 and SafeMath](#u256-and-safemath)
+7. [Common Imports](#common-imports)
+8. [Gas Optimization](#gas-optimization)
+9. [Common Contract Mistakes](#common-contract-mistakes)
 
 ---
 
@@ -39,6 +40,37 @@ This document covers contract code patterns, storage, SafeMath, and common mista
 | Section separator comments | Lazy, unprofessional | TSDoc for every method |
 
 **Read the full TypeScript Law before proceeding.**
+
+---
+
+## Mandatory Reading Order
+
+**This guideline is a SUMMARY. You MUST read the following docs files IN ORDER before writing contract code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules (applies to AssemblyScript too) |
+| 2 | `guidelines/setup-guidelines.md` | Package versions, asconfig.json |
+| 3 | `guidelines/contracts-guidelines.md` | This file - summary of patterns |
+| 4 | `docs/contracts-btc-runtime-README.md` | Runtime overview |
+| 5 | `docs/contracts-btc-runtime-getting-started-installation.md` | Setup |
+| 6 | `docs/contracts-btc-runtime-getting-started-first-contract.md` | Entry point, factory pattern |
+| 7 | `docs/contracts-btc-runtime-getting-started-project-structure.md` | Directory layout |
+| 8 | `docs/contracts-btc-runtime-core-concepts-storage-system.md` | Storage types, pointers |
+| 9 | `docs/contracts-btc-runtime-core-concepts-pointers.md` | Pointer allocation |
+| 10 | `docs/contracts-btc-runtime-api-reference-safe-math.md` | SafeMath (MANDATORY for u256) |
+| 11 | `docs/contracts-btc-runtime-gas-optimization.md` | Gas patterns, forbidden loops |
+| 12 | `docs/contracts-btc-runtime-core-concepts-security.md` | Security checklist |
+
+**For OP20 tokens, also read:**
+- `docs/contracts-btc-runtime-api-reference-op20.md`
+- `docs/contracts-btc-runtime-contracts-op20-token.md`
+
+**For OP721 NFTs, also read:**
+- `docs/contracts-btc-runtime-api-reference-op721.md`
+- `docs/contracts-btc-runtime-contracts-op721-nft.md`
+
+**IF YOU SKIP THESE DOCS, YOUR CONTRACT WILL HAVE BUGS.**
 
 ---
 

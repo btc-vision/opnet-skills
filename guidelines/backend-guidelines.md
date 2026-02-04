@@ -9,17 +9,18 @@ This document covers backend architecture, required frameworks, threading, cachi
 ## Table of Contents
 
 1. [TypeScript Law (MANDATORY)](#typescript-law-mandatory)
-2. [Required Frameworks](#required-frameworks)
-3. [Package Versions](#package-versions)
-4. [Architecture Principles](#architecture-principles)
-5. [HyperExpress Server](#hyperexpress-server)
-6. [WebSocket with uWebSockets.js](#websocket-with-uwebsocketsjs)
-7. [Threading (MANDATORY)](#threading-mandatory)
-8. [Caching (MANDATORY)](#caching-mandatory)
-9. [Provider and Contract Management](#provider-and-contract-management)
-10. [Error Handling](#error-handling)
-11. [Common Backend Mistakes](#common-backend-mistakes)
-12. [Security Checklist](#security-checklist)
+2. [Mandatory Reading Order](#mandatory-reading-order)
+3. [Required Frameworks](#required-frameworks)
+4. [Package Versions](#package-versions)
+5. [Architecture Principles](#architecture-principles)
+6. [HyperExpress Server](#hyperexpress-server)
+7. [WebSocket with uWebSockets.js](#websocket-with-uwebsocketsjs)
+8. [Threading (MANDATORY)](#threading-mandatory)
+9. [Caching (MANDATORY)](#caching-mandatory)
+10. [Provider and Contract Management](#provider-and-contract-management)
+11. [Error Handling](#error-handling)
+12. [Common Backend Mistakes](#common-backend-mistakes)
+13. [Security Checklist](#security-checklist)
 
 ---
 
@@ -73,6 +74,27 @@ This document covers backend architecture, required frameworks, threading, cachi
 ```
 
 **IF YOUR PROJECT DOES NOT MATCH THESE SETTINGS, FIX IT BEFORE WRITING CODE.**
+
+---
+
+## Mandatory Reading Order
+
+**This guideline is a SUMMARY. You MUST read the following docs files IN ORDER before writing backend code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 2 | `guidelines/setup-guidelines.md` | Package versions |
+| 3 | `guidelines/backend-guidelines.md` | This file - summary of patterns |
+| 4 | `docs/core-opnet-backend-api.md` | **REQUIRED FRAMEWORKS** - hyper-express, uWebSockets.js |
+| 5 | `docs/core-opnet-providers-json-rpc-provider.md` | Provider setup |
+| 6 | `docs/core-opnet-providers-threaded-http.md` | Threading (MANDATORY) |
+| 7 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
+| 8 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
+
+**FORBIDDEN FRAMEWORKS:** Express, Fastify, Koa, Hapi, Socket.io - use hyper-express and uWebSockets.js only.
+
+**IF YOU SKIP THESE DOCS, YOUR BACKEND WILL HAVE PERFORMANCE AND SECURITY ISSUES.**
 
 ---
 

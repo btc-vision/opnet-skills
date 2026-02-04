@@ -4,6 +4,8 @@
 
 This document covers package versions, configurations, and project setup for ALL OPNet project types.
 
+**This guideline is a SUMMARY. After reading this, you MUST read the project-specific docs listed in the Mandatory Reading Order section of each guideline file.**
+
 ---
 
 ## TYPESCRIPT LAW (MANDATORY - READ FIRST)

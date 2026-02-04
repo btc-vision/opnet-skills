@@ -9,16 +9,17 @@ This document covers frontend architecture, code organization, caching, network 
 ## Table of Contents
 
 1. [TypeScript Law (MANDATORY)](#typescript-law-mandatory)
-2. [Code Architecture](#code-architecture)
-3. [Project Structure](#project-structure)
-4. [Caching and Reuse](#caching-and-reuse)
-5. [Network Configuration](#network-configuration)
-6. [Wallet Integration](#wallet-integration)
-7. [Utility Patterns](#utility-patterns)
-8. [Component Patterns](#component-patterns)
-9. [TypeScript Standards](#typescript-standards)
-10. [Common Frontend Mistakes](#common-frontend-mistakes)
-11. [Theming with CSS Variables](#theming-with-css-variables)
+2. [Mandatory Reading Order](#mandatory-reading-order)
+3. [Code Architecture](#code-architecture)
+4. [Project Structure](#project-structure)
+5. [Caching and Reuse](#caching-and-reuse)
+6. [Network Configuration](#network-configuration)
+7. [Wallet Integration](#wallet-integration)
+8. [Utility Patterns](#utility-patterns)
+9. [Component Patterns](#component-patterns)
+10. [TypeScript Standards](#typescript-standards)
+11. [Common Frontend Mistakes](#common-frontend-mistakes)
+12. [Theming with CSS Variables](#theming-with-css-variables)
 
 ---
 
@@ -46,6 +47,30 @@ This document covers frontend architecture, code organization, caching, network 
 | Floats for financial values | Rounding errors | Fixed-point `bigint` |
 
 **Read the full TypeScript Law before proceeding.**
+
+---
+
+## Mandatory Reading Order
+
+**This guideline is a SUMMARY. You MUST read the following docs files IN ORDER before writing frontend code:**
+
+| Order | File | Contains |
+|-------|------|----------|
+| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 2 | `guidelines/setup-guidelines.md` | Package versions, vite config |
+| 3 | `guidelines/frontend-guidelines.md` | This file - summary of patterns |
+| 4 | `docs/core-opnet-README.md` | Client library overview |
+| 5 | `docs/core-opnet-getting-started-installation.md` | Installation |
+| 6 | `docs/core-opnet-getting-started-quick-start.md` | Quick start |
+| 7 | `docs/core-opnet-providers-json-rpc-provider.md` | Provider setup |
+| 8 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
+| 9 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
+| 10 | `docs/core-opnet-contracts-simulating-calls.md` | Read operations |
+| 11 | `docs/core-opnet-contracts-sending-transactions.md` | Write operations |
+| 12 | `docs/clients-walletconnect-README.md` | Wallet connection |
+| 13 | `docs/frontend-motoswap-ui-README.md` | **THE STANDARD** - Reference implementation |
+
+**IF YOU SKIP THESE DOCS, YOUR FRONTEND WILL HAVE BUGS.**
 
 ---
 
