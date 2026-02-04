@@ -1,5 +1,5 @@
 ---
-name: opnet-development
+name: opnet-dev
 description: Build on OPNet - Bitcoin L1 consensus layer for trustless smart contracts. Use when building AssemblyScript smart contracts, TypeScript libraries, React frontends, or Node plugins for OPNet. Triggers on Bitcoin smart contract development, OP20 tokens, OP721 NFTs, WebAssembly contracts, verify-dont-custody patterns, epoch mining, and OPNet architecture questions.
 ---
 
@@ -358,16 +358,61 @@ Always engage professional auditors for contracts handling real value.
 
 ---
 
-## CODE VERIFICATION ORDER
+## CODE VERIFICATION ORDER (MANDATORY)
 
-**Before considering code complete, verify in this order:**
+**You MUST actually RUN these commands, not just mention them.**
 
-1. **ESLint first** - `npm run lint` - catches `any`, missing return types, forbidden patterns
-2. **TypeScript second** - `npm run typecheck` - catches type mismatches after lint passes
-3. **Build third** - `npm run build` - only after lint + types pass
-4. **Tests last** - `npm run test` - run on clean build
+### Step 1: Install Dependencies
+```bash
+npm install
+```
+- Run this FIRST before any other commands
+- If package.json was created or modified, this is REQUIRED
+- Do NOT skip this step
 
-**NEVER skip ESLint. NEVER ship code with lint errors.**
+### Step 2: Run ESLint
+```bash
+npm run lint
+```
+- MUST pass with zero errors
+- If errors exist, FIX THEM before proceeding
+- Do NOT say "you should run lint" - actually RUN IT
+
+### Step 3: Run TypeScript Check
+```bash
+npm run typecheck
+```
+- Or `npx tsc --noEmit` if no script exists
+- MUST pass with zero errors
+- Fix all type errors before proceeding
+
+### Step 4: Build
+```bash
+npm run build
+```
+- Only run AFTER lint and typecheck pass
+- For contracts: verify .wasm file is generated
+
+### Step 5: Run Tests
+```bash
+npm run test
+```
+- Or `npx ts-node --esm tests/*.test.ts` for unit tests
+- All tests MUST pass
+- If tests fail, FIX THE CODE
+
+---
+
+### STOP - YOU MUST ACTUALLY RUN THESE COMMANDS
+
+- ❌ Do NOT just write "run npm run lint to verify"
+- ❌ Do NOT skip steps because "it should work"
+- ❌ Do NOT consider code complete without running ALL steps
+- ✅ Actually execute each command
+- ✅ Verify each command passes
+- ✅ Fix any errors before proceeding to next step
+
+**If you wrote code but didn't run these commands, YOUR TASK IS NOT COMPLETE.**
 
 ---
 
@@ -379,9 +424,14 @@ Always engage professional auditors for contracts handling real value.
    - Did I address everything the user asked for?
    - Did I miss any requirements?
 
-2. **Is it appropriate to run tests and linting?**
-   - If I wrote code, did I run `npm run lint` and `npm run test`?
-   - If tests failed, did I fix them?
+2. **Did I actually run the verification commands?**
+   - Did I run `npm install`? (REQUIRED if package.json exists/changed)
+   - Did I run `npm run lint`? (REQUIRED - must pass with zero errors)
+   - Did I run `npm run typecheck` or `npx tsc --noEmit`? (REQUIRED)
+   - Did I run `npm run build`? (REQUIRED for deployable code)
+   - Did I run `npm run test`? (REQUIRED if tests exist)
+   - **If ANY command failed, did I fix the errors?**
+   - **"I should run lint" is NOT the same as actually running it**
 
 3. **Did I review and reconsider my work?**
    - Re-read what I produced - is it correct?
