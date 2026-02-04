@@ -695,21 +695,6 @@ public claim(calldata: Calldata): BytesWriter {
 - System learns: "this face = this handshake" and gives them their banana
 - **The banana was always "theirs" but they couldn't access it until they linked face to handshake**
 
-### Alternative: Direct Transfer (Only If You Have ML-DSA Keys)
-
-If you already have users' **ML-DSA public keys** (not Bitcoin addresses), you can pre-compute OPNet addresses:
-
-```typescript
-// OPNet address = SHA256(ML-DSA public key)
-const opnetAddress = sha256(userMldsaPublicKey);
-// Now you CAN transfer directly
-await token.transfer(opnetAddress, amount);
-```
-
-**This is rare** - most external data sources (snapshots, holder lists) only have Bitcoin addresses.
-
-See `docs/core-opnet-address-systems-airdrop-pattern.md` for complete contract implementation.
-
 ---
 
 ## NativeSwap: How to Build a Real DEX on Bitcoin
