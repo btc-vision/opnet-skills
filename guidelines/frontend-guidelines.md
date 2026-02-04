@@ -300,6 +300,96 @@ export function useTokenContract(address: string): IOP20Contract | null {
 
 ---
 
+## RPC Call Optimization (CRITICAL)
+
+### Use `.metadata()` Instead of Multiple Calls
+
+**WRONG - 4+ separate RPC calls:**
+```typescript
+// ❌ BAD - 4 RPC calls for basic token info
+const [nameResult, symbolResult, decimalsResult, totalSupplyResult] = await Promise.all([
+    contract.name(),
+    contract.symbol(),
+    contract.decimals(),
+    contract.totalSupply()
+]);
+
+const name = nameResult.decoded;
+const symbol = symbolResult.decoded;
+const decimals = decimalsResult.decoded;
+const totalSupply = totalSupplyResult.decoded;
+```
+
+**CORRECT - 1 RPC call with `.metadata()`:**
+```typescript
+// ✅ GOOD - 1 RPC call returns ALL token info
+const metadataResult = await contract.metadata();
+const metadata = metadataResult.decoded;
+
+// metadata contains:
+// - name: string
+// - symbol: string
+// - decimals: number
+// - totalSupply: bigint
+// - owner: Address (if applicable)
+// - and more...
+
+const { name, symbol, decimals, totalSupply } = metadata;
+```
+
+**Why this matters:**
+- Each RPC call has network latency (50-500ms)
+- 4 calls = 200-2000ms total wait time
+- 1 call = 50-500ms total wait time
+- **4x-10x faster with `.metadata()`**
+
+### Other Batch Optimizations
+
+```typescript
+// ❌ BAD - Multiple calls for same data
+const balance1 = await contract.balanceOf(user1);
+const balance2 = await contract.balanceOf(user2);
+const balance3 = await contract.balanceOf(user3);
+
+// ✅ GOOD - Use Promise.all for independent calls
+const [balance1, balance2, balance3] = await Promise.all([
+    contract.balanceOf(user1),
+    contract.balanceOf(user2),
+    contract.balanceOf(user3),
+]);
+
+// ✅ BEST - If the contract has a batch method, use it
+const balances = await contract.balanceOfBatch([user1, user2, user3]);
+```
+
+### Cache RPC Results
+
+```typescript
+// ❌ BAD - Fetching metadata on every render
+function TokenInfo({ address }: { address: string }) {
+    const [metadata, setMetadata] = useState(null);
+
+    useEffect(() => {
+        contract.metadata().then(r => setMetadata(r.decoded));
+    }, [address]); // Fetches every time address changes
+}
+
+// ✅ GOOD - Cache metadata, invalidate on block change
+const metadataCache = new Map<string, TokenMetadata>();
+
+async function getTokenMetadata(address: string): Promise<TokenMetadata> {
+    if (metadataCache.has(address)) {
+        return metadataCache.get(address)!;
+    }
+
+    const result = await contract.metadata();
+    metadataCache.set(address, result.decoded);
+    return result.decoded;
+}
+```
+
+---
+
 ## Network Configuration
 
 ### ALWAYS Use Enums from @btc-vision/bitcoin

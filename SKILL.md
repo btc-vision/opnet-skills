@@ -23,6 +23,8 @@ A comprehensive skill for building on OPNet - Bitcoin's L1 consensus layer for t
 - Start writing code after skimming 2-3 files
 - Assume you know OPNet patterns from other frameworks
 - Skip files because they "seem similar" to ones you read
+- Create zip files or deliverables WITHOUT running `npm run lint` and `npm run typecheck`
+- Say "run npm run lint to verify" instead of ACTUALLY running it
 
 ### YOU MUST:
 - Read **EVERY SINGLE FILE** listed for your project type below
@@ -30,6 +32,8 @@ A comprehensive skill for building on OPNet - Bitcoin's L1 consensus layer for t
 - Read the **COMPLETE FILE**, not just the first few sections
 - **ONLY** read files listed in this skill - no random exploration
 - Confirm you read all files before writing ANY code
+- **ACTUALLY RUN** `npm install`, `npm run lint`, `npm run typecheck`, `npm run build`
+- **FIX ALL ERRORS** before creating any deliverable (zip, PR, etc.)
 
 ---
 
@@ -476,6 +480,41 @@ npm run test
 
 ## PROJECT DELIVERY
 
+---
+
+### STOP - BEFORE CREATING ANY ZIP OR DELIVERABLE
+
+**You MUST run and PASS all verification commands BEFORE packaging:**
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Format code
+npm run format
+
+# 3. Lint (MUST PASS)
+npm run lint
+
+# 4. TypeScript check (MUST PASS)
+npm run typecheck
+# OR: npx tsc --noEmit
+
+# 5. Build (MUST SUCCEED)
+npm run build
+
+# 6. Tests (MUST PASS)
+npm run test
+```
+
+**If ANY command fails, DO NOT create the zip. Fix the errors first.**
+
+❌ **FORBIDDEN:** Creating zip without running verification commands
+❌ **FORBIDDEN:** Saying "run npm run lint to verify" instead of actually running it
+❌ **FORBIDDEN:** Skipping typecheck because "it should work"
+
+---
+
 **When creating zip files for delivery:**
 
 **NEVER include:**
@@ -484,7 +523,7 @@ npm run test
 - `.git/` - repository history
 - `.env` - contains secrets
 
-**Correct zip command:**
+**Correct zip command (only AFTER all checks pass):**
 ```bash
 zip -r project.zip . -x "node_modules/*" -x "build/*" -x "dist/*" -x ".git/*" -x "*.wasm" -x ".env"
 ```
@@ -1023,6 +1062,25 @@ The first parameter is the ML-DSA public key (quantum-resistant), the second is 
 - **Cache locally** - Browser localStorage/IndexedDB for user data
 - **Cache on API** - Server-side caching for blockchain state
 - **Invalidate on block change** - Clear stale data when new block confirmed
+
+### RPC Call Optimization
+
+**Use `.metadata()` instead of multiple calls:**
+
+```typescript
+// ❌ BAD - 4 RPC calls (slow)
+const [name, symbol, decimals, totalSupply] = await Promise.all([
+    contract.name(),
+    contract.symbol(),
+    contract.decimals(),
+    contract.totalSupply()
+]);
+
+// ✅ GOOD - 1 RPC call (fast)
+const { name, symbol, decimals, totalSupply } = (await contract.metadata()).decoded;
+```
+
+**`.metadata()` returns name, symbol, decimals, totalSupply, owner, and more in ONE call.**
 
 ### Backend/API Frameworks
 
@@ -1595,10 +1653,4 @@ Install OP_WALLET from the [Chrome Web Store](https://chromewebstore.google.com/
 2. **Verify project configuration** - Before writing any code
 3. **NO `any` type** - Ever
 4. **Test everything** - Unit tests required
-5. **Handle reorgs** - In plugins, always implement `onReorg()`
-6. **Contracts don't hold BTC** - Verify-don't-custody pattern
-7. **Threading for performance** - Sequential = unacceptable
-8. **NO section separator comments** - Use TSDoc instead
-9. **CSV timelocks are MANDATORY** - All swap recipient addresses MUST use CSV to prevent pinning attacks
-10. **OPNet is consensus, not indexing** - Binding state consistency requires cryptographic guarantees
-11. **Two address systems** - Bitcoin addresses (tweaked pubkey) ≠ OPNet addresses (ML-DSA hash). Airdrops require signature verification to link them.
+5. **Handle

@@ -743,6 +743,37 @@ class SimulationService {
 
 ---
 
+## RPC Call Optimization
+
+### Use `.metadata()` Instead of Multiple Calls
+
+**WRONG - 4+ separate RPC calls:**
+```typescript
+// ❌ BAD - 4 RPC calls for basic token info (slow)
+const [name, symbol, decimals, totalSupply] = await Promise.all([
+    contract.name(),
+    contract.symbol(),
+    contract.decimals(),
+    contract.totalSupply()
+]);
+```
+
+**CORRECT - 1 RPC call:**
+```typescript
+// ✅ GOOD - 1 RPC call returns ALL token info (fast)
+const metadata = (await contract.metadata()).decoded;
+const { name, symbol, decimals, totalSupply, owner } = metadata;
+```
+
+**Why this matters for backend:**
+- Each RPC call = network latency + processing time
+- 4 calls × 100 requests/sec = 400 RPC calls/sec
+- 1 call × 100 requests/sec = 100 RPC calls/sec
+- **4x reduction in RPC load**
+- Lower latency for API consumers
+
+---
+
 ## Caching (MANDATORY)
 
 ### Cache Everything
