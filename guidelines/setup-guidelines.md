@@ -64,12 +64,12 @@ This ensures all packages are updated to their latest compatible versions. **Nev
 ```json
 {
     "dependencies": {
-        "@btc-vision/as-bignum": "0.1.0-beta.0",
-        "@btc-vision/btc-runtime": "1.11.0-beta.0"
+        "@btc-vision/as-bignum": "0.1.2",
+        "@btc-vision/btc-runtime": "1.11.0-rc.0"
     },
     "devDependencies": {
-        "assemblyscript": "^0.28.9",
-        "@btc-vision/opnet-transform": "^0.2.1"
+        "@btc-vision/assemblyscript": "latest",
+        "@btc-vision/opnet-transform": "1.0.2"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"

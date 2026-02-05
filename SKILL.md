@@ -275,7 +275,7 @@ Always engage professional auditors for contracts handling real value.
 
 | Category | Check For |
 |----------|-----------|
-| **Type Safety** | No `any`, no `!` assertions, no `@ts-ignore` |
+| **Type Safety** | No `any`, no non-null assertions (the ! operator), no `@ts-ignore` |
 | **Null Safety** | Explicit null checks, optional chaining used correctly |
 | **BigInt** | All satoshi/token amounts use `bigint`, not `number` |
 | **No Floats** | No floating point for financial calculations |
@@ -341,7 +341,7 @@ Always engage professional auditors for contracts handling real value.
    - If you don't know, GO BACK AND READ
 
 4. **What constructs are FORBIDDEN?**
-   - `any`, `!`, `while` loops in contracts, `number` for satoshis, etc.
+   - `any`, non-null assertion operator, `while` loops in contracts, `number` for satoshis, etc.
    - If you can't list them, GO BACK AND READ
 
 5. **What patterns are REQUIRED?**
@@ -1432,7 +1432,7 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 
 ### Key Concepts
 
-1. **Contracts use AssemblyScript** - Compiles to WebAssembly
+1. **Contracts use a custom AssemblyScript fork** (`@btc-vision/assemblyscript`) - This fork adds **closure support** to standard AssemblyScript, enabling callbacks and higher-order function patterns. Always install `@btc-vision/assemblyscript` instead of the upstream `assemblyscript` package.
 2. **Constructor runs on EVERY interaction** - Use `onDeployment()` for initialization
 3. **Contracts CANNOT hold BTC** - They are calculators, not custodians
 4. **Verify-don't-custody pattern** - Check `Blockchain.tx.outputs` against internal state
@@ -1628,7 +1628,7 @@ Install OP_WALLET from the [Chrome Web Store](https://chromewebstore.google.com/
 |------|-----------------|
 | Node.js | >= 24.0.0 |
 | TypeScript | >= 5.9.3 |
-| AssemblyScript | >= 0.28.9 |
+| AssemblyScript | `@btc-vision/assemblyscript` (custom fork with closure support) |
 
 ---
 
