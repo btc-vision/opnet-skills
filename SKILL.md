@@ -17,6 +17,13 @@ A comprehensive skill for building on OPNet - Bitcoin's L1 consensus layer for t
 
 ## CRITICAL RULES FOR AI AGENTS
 
+### ABSOLUTE RULE - NO RAW JAVASCRIPT
+
+**NEVER write raw JavaScript. ALWAYS use:**
+- **Frontend**: TypeScript + Vite + npm packages
+- **Backend**: TypeScript + Node.js + npm packages
+- **NO EXCEPTIONS. NOT EVEN FOR "QUICK EXAMPLES".**
+
 ### DO NOT:
 - Read a few files and then say "I have enough context"
 - Read random skills or guidelines not listed for your project type
@@ -107,7 +114,9 @@ OPNet development has:
 | 9 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
 | 10 | `docs/core-opnet-contracts-simulating-calls.md` | Read operations |
 | 11 | `docs/core-opnet-contracts-sending-transactions.md` | Write operations |
-| 12 | `docs/clients-walletconnect-README.md` | Wallet connection |
+| 12 | `docs/core-opnet-contracts-transaction-configuration.md` | Transaction options |
+| 13 | `docs/core-transaction-transaction-factory-interfaces.md` | **Advanced TX params (fees, notes, anchors)** |
+| 14 | `docs/clients-walletconnect-README.md` | Wallet connection |
 | 13 | `docs/frontend-motoswap-ui-README.md` | **THE STANDARD** - Reference implementation |
 
 ---
@@ -126,6 +135,8 @@ OPNet development has:
 | 6 | `docs/core-opnet-providers-threaded-http.md` | Threading (MANDATORY) |
 | 7 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
 | 8 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
+| 9 | `docs/core-opnet-contracts-sending-transactions.md` | Sending transactions |
+| 10 | `docs/core-transaction-transaction-factory-interfaces.md` | **Advanced TX params (fees, notes, anchors)** |
 
 **FORBIDDEN FRAMEWORKS:** Express, Fastify, Koa, Hapi, Socket.io - use hyper-express and uWebSockets.js only.
 
@@ -807,16 +818,58 @@ This makes manipulation economically irrational and ensures queue depth is a rel
 | `tsconfig-generic.json` | TypeScript config (NOT for contracts) |
 | `asconfig.json` | AssemblyScript compiler config |
 
-### TypeScript is MANDATORY
+### TypeScript is MANDATORY - NO EXCEPTIONS
 
-**JavaScript is NOT allowed. All code MUST be TypeScript.**
+---
 
-- ❌ No `.js` files (except config files like `eslint.config.js`)
-- ❌ No `// @ts-check` in JS files - use real TypeScript
-- ❌ No `allowJs: true` in tsconfig
+# STOP - ABSOLUTE RULE
+
+**YOU MUST NEVER, EVER WRITE RAW JAVASCRIPT CODE. NO EXCEPTIONS.**
+
+---
+
+**All code MUST be TypeScript with proper tooling:**
+
+| Project Type | Required Stack |
+|-------------|----------------|
+| **Frontend** | TypeScript + Vite + npm libraries |
+| **Backend** | TypeScript + Node.js + npm libraries |
+| **Contracts** | AssemblyScript (TypeScript-like) |
+| **Tests** | TypeScript |
+
+### FORBIDDEN - NEVER DO THESE:
+
+- ❌ **Raw JavaScript files** - NEVER write `.js` source files
+- ❌ **Inline `<script>` tags** - NEVER embed JS in HTML
+- ❌ **Browser-only JS** - NEVER write code that only runs in browser console
+- ❌ **No build system** - NEVER skip Vite/bundler for frontend
+- ❌ **`// @ts-check` in JS** - This is NOT TypeScript, use real `.ts` files
+- ❌ **`allowJs: true`** - NEVER enable this in tsconfig
+- ❌ **CDN script imports** - Use npm packages instead
+
+### REQUIRED - ALWAYS DO THESE:
+
 - ✅ All source files must be `.ts` or `.tsx`
+- ✅ Use Vite for all frontend applications
+- ✅ Use Node.js + TypeScript for all backend applications
+- ✅ Install dependencies via npm (not CDN links)
 - ✅ Strict mode enabled in tsconfig
 - ✅ All types explicitly defined
+- ✅ Proper project structure with package.json, tsconfig.json, etc.
+
+### If User Asks for "Quick Script" or "Simple Example"
+
+**STILL USE TYPESCRIPT.** Create a proper project structure:
+
+```bash
+# Even for "quick" examples
+mkdir project && cd project
+npm init -y
+npm install typescript tsx
+# Write .ts file, run with npx tsx script.ts
+```
+
+**There is NO scenario where raw JavaScript is acceptable.**
 
 ---
 
@@ -1261,6 +1314,7 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 |------|-------------|
 | `docs/core-transaction-README.md` | Library overview |
 | `docs/core-transaction-transaction-building.md` | Building transactions |
+| `docs/core-transaction-transaction-factory-interfaces.md` | **TransactionFactory interfaces (fees, notes, anchors, send-max)** |
 | `docs/core-transaction-offline-transaction-signing.md` | Offline signing |
 | `docs/core-transaction-addresses-P2OP.md` | P2OP address format |
 | `docs/core-transaction-quantum-support-README.md` | Quantum overview |
@@ -1425,6 +1479,62 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 | `templates/tests/OP20.test.ts` | OP20 test example |
 | `templates/tests/setup.ts` | Test setup |
 | `templates/tests/gulpfile.js` | Gulp build config |
+
+---
+
+## Advanced Transaction Features
+
+When users ask about adding fees, notes, or advanced features to transactions (deployments, interactions, funding), **ALWAYS check `docs/core-transaction-transaction-factory-interfaces.md`**.
+
+### Common User Requests → Parameters
+
+| User Request | Parameter | Interface |
+|-------------|-----------|-----------|
+| "Add a fee" / "Set fee rate" | `feeRate: number` (sat/vB) | TransactionParameters |
+| "Add priority fee" | `priorityFee: bigint` | TransactionParameters |
+| "Add a note/memo" | `note: string \| Uint8Array` | TransactionParameters |
+| "Use anchor outputs" | `anchor: true` | TransactionParameters |
+| "Send to multiple addresses" | `extraOutputs: PsbtOutputExtended[]` | TransactionParameters |
+| "Send max/entire balance" | `autoAdjustAmount: true` | IFundingTransactionParameters |
+| "Pay fees from separate UTXOs" | `feeUtxos: UTXO[]` | IFundingTransactionParameters |
+| "Set minimum gas" | `minGas: bigint` | TransactionParameters |
+| "Offline signing" | `toOfflineBuffer()` / `fromOfflineBuffer()` | CallResult methods |
+| "Sign without broadcasting" | `signTransaction()` | CallResult method |
+| "Broadcast pre-signed TX" | `sendPresignedTransaction()` | CallResult method |
+
+### CallResult Transaction Methods
+
+```typescript
+// Sign without broadcast
+const signedTx = await simulation.signTransaction(params);
+
+// Sign and broadcast
+const receipt = await simulation.sendTransaction(params);
+
+// Broadcast pre-signed
+const receipt = await simulation.sendPresignedTransaction(signedTx);
+
+// Offline signing workflow
+const buffer = await simulation.toOfflineBuffer(address, amount);
+const reconstructed = CallResult.fromOfflineBuffer(buffer);
+```
+
+### Quick Example: Adding Fee + Note
+
+```typescript
+await simulation.sendTransaction({
+    signer: wallet.keypair,
+    mldsaSigner: wallet.mldsaKeypair,
+    refundTo: wallet.p2tr,
+    network: networks.regtest,
+    maximumAllowedSatToSpend: 100000n,
+    feeRate: 15,                    // 15 sat/vB
+    priorityFee: 5000n,             // +5000 sats priority
+    note: "Payment for invoice #123", // OP_RETURN memo
+});
+```
+
+**For full details, read `docs/core-transaction-transaction-factory-interfaces.md`.**
 
 ---
 
