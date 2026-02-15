@@ -131,7 +131,7 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
         "stream-browserify": "latest"
     },
     "overrides": {
-        "@noble/hashes": "latest"
+        "@noble/hashes": "2.0.1"
     }
 }
 ```

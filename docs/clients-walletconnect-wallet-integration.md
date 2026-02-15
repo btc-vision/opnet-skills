@@ -400,10 +400,12 @@ ML-DSA (Module-Lattice Digital Signature Algorithm) provides quantum-resistant s
 
 **OP_WALLET is the only wallet currently supporting MLDSA.** If your wallet supports MLDSA:
 
-1. Implement `getMLDSAPublicKey()` to return the MLDSA public key
-2. Implement `getHashedMLDSAKey()` to return SHA256(mldsaPublicKey)
+1. Implement `getMLDSAPublicKey()` to return the raw ML-DSA public key (~2500 bytes, 0x hex). This is the full-size key used for signing/verification.
+2. Implement `getHashedMLDSAKey()` to return the 32-byte SHA256 hash of the ML-DSA public key (0x hex). **This is the value used as the first parameter of `Address.fromString()`** — NOT the raw key.
 3. Implement `signMLDSAMessage()` for signing
 4. Implement `verifyMLDSASignature()` for verification
+
+**IMPORTANT:** `getMLDSAPublicKey()` returns the raw key (~2500 bytes). `getHashedMLDSAKey()` returns the 32-byte hash. For `Address.fromString(hashedMLDSAKey, bitcoinPubKey)`, always use the **hashed** key, never the raw key.
 
 Reference the OP_WALLET implementation at `src/wallets/opwallet/controller.ts` for the complete MLDSA implementation.
 

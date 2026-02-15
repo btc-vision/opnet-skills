@@ -9,7 +9,20 @@ A comprehensive skill for building on OPNet - Bitcoin's L1 consensus layer for t
 
 ---
 
-# STOP - MANDATORY READING BEFORE ANY CODE
+# STEP 1: UNDERSTAND WHAT THE USER WANTS FIRST
+
+**BEFORE reading any docs or guidelines, you MUST understand the user's request.**
+
+1. Read the user's message carefully
+2. Identify what type of project they need (contract, frontend, backend, plugin, audit, question)
+3. Ask clarifying questions if the request is ambiguous
+4. ONLY THEN proceed to read the docs listed for that project type
+
+**Do NOT start reading all docs blindly. Understand the task first, then read only the relevant docs.**
+
+---
+
+# STEP 2: MANDATORY READING BEFORE ANY CODE
 
 **IF YOU WRITE CODE WITHOUT READING THE REQUIRED DOCS, YOU WILL CREATE BROKEN, EXPLOITABLE CODE.**
 
@@ -41,6 +54,64 @@ A comprehensive skill for building on OPNet - Bitcoin's L1 consensus layer for t
 - Confirm you read all files before writing ANY code
 - **ACTUALLY RUN** `npm install`, `npm run lint`, `npm run typecheck`, `npm run build`
 - **FIX ALL ERRORS** before creating any deliverable (zip, PR, etc.)
+
+---
+
+## MANDATORY WORKFLOW RULES
+
+### 1. CONTRACTS FIRST, THEN FRONTEND
+
+**When a user asks for a website/dApp that interacts with a smart contract, you MUST build the `.wasm` contract FIRST before building the frontend.**
+
+Workflow order:
+1. Build and compile the AssemblyScript smart contract → verify `.wasm` output exists
+2. Run contract tests to ensure correctness
+3. THEN build the frontend that interacts with that contract
+
+**Never build a frontend that references a contract that doesn't exist yet.**
+
+### 2. WALLET INTEGRATION: ALWAYS USE `@btc-vision/opwallet`
+
+**All OPNet websites MUST use `@btc-vision/opwallet` for OP_WALLET integration.**
+
+OP_WALLET is the official and ONLY wallet that fully supports OPNet features (MLDSA signatures, quantum-resistant keys, full OPNet integration). Every frontend dApp MUST integrate it.
+
+### 3. VITE IS MANDATORY — NO EXCEPTIONS
+
+**All frontend projects MUST use Vite as the build tool.** No webpack, no parcel, no rollup standalone, no esbuild standalone. Vite only.
+
+### 4. IPFS DEPLOYMENT: USE OPNET-CLI ONLY
+
+**When publishing to IPFS:**
+1. Build with Vite: `npm run build` (produces `dist/` folder)
+2. The output is static HTML + JS + CSS files
+3. **Upload using the opnet-cli IPFS upload script:**
+   - **IPFS-only upload (no domain):** `bash /root/openclaw/skills/opnet-cli/scripts/ipfs-upload.sh ./dist`
+   - **Upload + publish to .btc domain:** `bash /root/openclaw/skills/opnet-cli/scripts/ipfs-upload.sh ./dist mysite`
+   - **Dry-run (upload but don't publish on-chain):** `bash /root/openclaw/skills/opnet-cli/scripts/ipfs-upload.sh ./dist mysite --dry-run`
+4. The site must work as a fully static site — no server-side rendering, no API routes
+5. All contract interactions happen client-side via the OPNet provider
+
+**The `dist/` folder after `vite build` contains everything needed for IPFS deployment.**
+
+**The upload script returns JSON with the CID and gateway URL:**
+```json
+{
+  "cid": "QmXyz...",
+  "files": 12,
+  "totalSize": 245000,
+  "gateway": "https://ipfs.opnet.org/ipfs/QmXyz..."
+}
+```
+
+**FORBIDDEN IPFS methods — NEVER use any of these:**
+- ❌ **Local IPFS daemon (Kubo)** — do NOT run `ipfs add`, `ipfs pin`, or any local Kubo commands
+- ❌ **`ipfs-website` skill** — this skill is deprecated and deleted
+- ❌ **Direct HTTP calls to IPFS API** — do NOT use `curl`, `fetch`, or any raw HTTP to IPFS endpoints
+- ❌ **Uploading files one by one** — the script handles directory uploads with proper chunking
+- ❌ **Any IPFS upload method other than the opnet-cli script above**
+
+**ALWAYS use `bash /root/openclaw/skills/opnet-cli/scripts/ipfs-upload.sh` for ALL IPFS uploads. No exceptions.**
 
 ---
 
@@ -801,6 +872,184 @@ This makes manipulation economically irrational and ensures queue depth is a rel
 
 ## ENFORCEMENT RULES (NON-NEGOTIABLE)
 
+### ABI-Based Contract Interaction is MANDATORY
+
+**ALL frontend websites that interact with OPNet smart contracts MUST use the `opnet` npm package with the contract's ABI definition.** This is non-negotiable.
+
+- **ALWAYS** import and use the contract's ABI (from `opnet` built-in ABIs or custom ABIs) when instantiating contracts
+- **NEVER** use raw RPC calls, manual calldata encoding, or any other method to interact with contracts
+- **ALWAYS** use typed contract instances created from ABIs for type-safe method calls and return value decoding
+- **Read `docs/core-opnet-abi-reference-abi-overview.md` and `docs/core-opnet-abi-reference-custom-abis.md`** to understand ABI creation and usage
+
+```typescript
+// CORRECT - Use opnet package with ABI definition
+import { JSONRpcProvider } from 'opnet';
+import { MyContractABI } from './abi/MyContractABI.js';
+
+const provider = new JSONRpcProvider('https://regtest.opnet.org');
+const contract = provider.getContract(contractAddress, MyContractABI);
+const result = await contract.someMethod(param1, param2);
+
+// WRONG - Raw RPC calls without ABI
+const result = await fetch(rpcUrl, { body: JSON.stringify({ method: 'call', params: [...] }) });
+
+// WRONG - Manual calldata encoding
+const calldata = new Uint8Array([...]);
+```
+
+**If a contract does not have a pre-built ABI in `opnet`, you MUST create a custom ABI definition following `docs/core-opnet-abi-reference-custom-abis.md`.**
+
+---
+
+### KNOWN FRONTEND MISTAKES — NEVER REPEAT THESE
+
+These are real bugs that have occurred. Every one of them is now **forbidden**.
+
+#### 1. WRONG: Using `contract.execute()` with raw selector bytes
+
+```typescript
+// WRONG - Raw execute with selector bytes. NEVER DO THIS.
+const selector = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+const result = await contract.execute(selector, calldata);
+
+// CORRECT - Use ABI-defined typed method calls
+const result = await contract.claim(signature, messageHash);
+```
+
+**Always define a proper ABI and call methods by name. Raw selectors bypass type safety and break silently.**
+
+#### 2. WRONG: Missing `getContract` parameters
+
+`getContract` requires **5 parameters**: `(address, abi, provider, network, sender)`.
+
+```typescript
+// WRONG - Missing params (will fail or return broken contract)
+const contract = getContract(address, abi);
+const contract = getContract(address, abi, provider);
+
+// CORRECT - All 5 params
+const contract = getContract(address, abi, provider, network, senderAddress);
+```
+
+**Read `docs/core-opnet-contracts-instantiating-contracts.md` for the exact signature. Do NOT guess the params.**
+
+#### 3. WRONG: Gating frontend actions on `signer` from walletconnect
+
+On a frontend, the wallet browser extension handles signing. The `signer` object from `useWalletConnect()` may be `null`/`undefined` initially — do NOT gate user actions on it.
+
+```typescript
+// WRONG - Throws "Wallet not connected" because signer is null on frontend
+if (!signer) throw new Error('Wallet not connected');
+await contract.claim(signer, ...);
+
+// CORRECT - Check wallet connection status, not signer object
+const { isConnected, address } = useWalletConnect();
+if (!isConnected || !address) throw new Error('Wallet not connected');
+```
+
+#### 4. WRONG: Using walletconnect's provider for read calls
+
+Create a **separate `JSONRpcProvider`** for read-only contract calls. Do not reuse walletconnect's provider for reads.
+
+```typescript
+// WRONG - Using walletconnect provider for reads
+const { provider } = useWalletConnect();
+const data = await provider.call(...);
+
+// CORRECT - Dedicated read provider
+const readProvider = new JSONRpcProvider('https://regtest.opnet.org');
+const contract = readProvider.getContract(address, abi);
+const data = await contract.someReadMethod();
+```
+
+#### 5. WRONG: Importing from wrong packages
+
+**Know where symbols live:**
+
+| Symbol | Correct Package | WRONG Package |
+|--------|----------------|---------------|
+| `Address` | `@btc-vision/transaction` (also re-exported from `opnet`) | ❌ `@btc-vision/bitcoin` (not in browser bundle) |
+| `ABIDataTypes` | `@btc-vision/transaction` (also re-exported from `opnet`) | ❌ `@btc-vision/bitcoin` |
+| `JSONRpcProvider` | `opnet` | ❌ `@btc-vision/provider` |
+| `networks` | `@btc-vision/bitcoin` | — |
+
+```typescript
+// CORRECT imports for frontend
+import { Address, ABIDataTypes } from 'opnet';
+import { JSONRpcProvider } from 'opnet';
+
+// WRONG - Address is NOT in the browser bundle of @btc-vision/bitcoin
+import { Address } from '@btc-vision/bitcoin'; // ❌ WILL FAIL IN BROWSER
+```
+
+**When in doubt, import from `opnet` — it re-exports the most commonly needed symbols.**
+
+#### 6. WRONG: Passing a raw Bitcoin address (bc1q/bc1p) or raw ML-DSA public key to Address.fromString()
+
+`Address.fromString()` takes **TWO parameters**:
+1. **First param**: The **HASH** of the ML-DSA public key (32 bytes, 0x-prefixed). This is NOT the raw ML-DSA public key (which is much larger). The walletconnect hook provides this as `mldsaPublicKey` — it is already hashed.
+2. **Second param**: The Bitcoin tweaked public key (33 bytes compressed, 0x-prefixed). The walletconnect hook provides this as `publicKey`.
+
+It does NOT accept raw Bitcoin addresses (bc1q/bc1p), and it does NOT accept only one parameter.
+
+```typescript
+// WRONG - Passing a raw Bitcoin address. WILL CRASH.
+const sender = Address.fromString(walletAddress); // walletAddress = "bc1q..." ❌
+
+// WRONG - Only one parameter. WILL CRASH.
+const sender = Address.fromString(publicKey); // ❌
+
+// WRONG - Passing mldsaPublicKey (the RAW ML-DSA public key, ~2500 bytes).
+// Address.fromString expects the 32-byte HASH, not the raw key. ❌
+const sender = Address.fromString(mldsaPublicKey, publicKey); // ❌ WRONG! mldsaPublicKey is raw
+
+// CORRECT - ALWAYS pass hashedMLDSAKey (32-byte hash) + publicKey (Bitcoin tweaked pubkey)
+const sender = Address.fromString(hashedMLDSAKey, publicKey);
+// hashedMLDSAKey = "0xABCD..." (32-byte SHA256 hash of ML-DSA pubkey, from walletconnect's hashedMLDSAKey)
+// publicKey = "0x0203..." (33-byte compressed Bitcoin tweaked pubkey, from walletconnect's publicKey)
+```
+
+**On frontend with walletconnect:**
+```typescript
+const { publicKey, hashedMLDSAKey } = useWalletConnect();
+// publicKey = Bitcoin tweaked public key (0x hex, 33 bytes compressed)
+// hashedMLDSAKey = 32-byte SHA256 hash of ML-DSA public key (0x hex)
+// NOTE: mldsaPublicKey is the RAW key (~2500 bytes) — do NOT use it for Address.fromString()
+
+// CORRECT - Use hashedMLDSAKey (NOT mldsaPublicKey) + publicKey
+const senderAddress = Address.fromString(hashedMLDSAKey, publicKey);
+
+// Then use in getContract
+const contract = getContract<IMyContract>(contractAddr, abi, provider, network, senderAddress);
+```
+
+**If `mldsaPublicKey` is not available** (wallet doesn't support ML-DSA yet), use `provider.getPublicKeyInfo(walletAddress)` to resolve the public key info, then construct the Address.
+
+#### 7. WRONG: Using `walletAddress` (bc1q.../bc1p...) where a public key hex is needed
+
+The `walletAddress` from walletconnect is a **bech32 Bitcoin address** (bc1q... or bc1p...). It is NOT a public key. Many OPNet APIs need **public key hex** (0x-prefixed), not bech32 addresses.
+
+```typescript
+// WRONG - Passing bech32 address where public key is expected
+const sender = Address.fromString(walletAddress); // "bc1q..." is NOT a public key ❌
+await contract.someMethod(walletAddress);          // If it expects a pubkey ❌
+
+// CORRECT - Use hashedMLDSAKey and publicKey from walletconnect
+const { publicKey, hashedMLDSAKey, mldsaPublicKey, address: walletAddress } = useWalletConnect();
+// publicKey = hex string "0x0203..." (Bitcoin tweaked pubkey, 33 bytes compressed)
+// hashedMLDSAKey = hex string "0xABCD..." (32-byte SHA256 hash of ML-DSA pubkey)
+// mldsaPublicKey = raw ML-DSA public key (~2500 bytes) — for signing ONLY, NOT for Address.fromString
+// walletAddress = "bc1q..." (only use for display and refundTo)
+```
+
+**Rule of thumb:**
+- `walletAddress` (bc1q/bc1p) → ONLY for display to user and `refundTo` in sendTransaction
+- `publicKey` (0x hex, 33 bytes) → Bitcoin tweaked public key, for Address.fromString **second** param
+- `hashedMLDSAKey` (0x hex, 32 bytes) → SHA256 hash of ML-DSA public key, for Address.fromString **first** param
+- `mldsaPublicKey` (0x hex, ~2500 bytes) → Raw ML-DSA public key, for MLDSA signing/verification ONLY. **NEVER** use for Address.fromString
+
+---
+
 ### Before Writing ANY Code
 
 **YOU MUST:**
@@ -1047,14 +1296,20 @@ public async transfer(to: Address, amount: bigint): Promise<boolean> {
 **`Address.fromString()` requires TWO parameters:**
 
 ```typescript
-// WRONG - will fail
+// WRONG - will fail (one param)
 const addr = Address.fromString(addressString);
 
-// CORRECT - always provide both params
-const addr = Address.fromString(mldsaPublicKey, tweakedPublicKey);
+// WRONG - will fail (raw Bitcoin address)
+const addr = Address.fromString('bc1q...');
+
+// WRONG - raw ML-DSA public key is ~2500 bytes, NOT what this function expects
+const addr = Address.fromString(rawMldsaPublicKey, tweakedPublicKey);
+
+// CORRECT - always provide both: hashedMLDSAKey (32-byte hash) + publicKey (Bitcoin tweaked pubkey)
+const addr = Address.fromString(hashedMLDSAKey, publicKey);
 ```
 
-The first parameter is the ML-DSA public key (quantum-resistant), the second is the tweaked public key (legacy Bitcoin). Always provide both.
+The first parameter is the 32-byte SHA256 **hash** of the ML-DSA public key — this is `hashedMLDSAKey` from `useWalletConnect()`, NOT `mldsaPublicKey` (which is the raw ~2500-byte key). The second is the Bitcoin tweaked public key (33 bytes compressed) — this is `publicKey` from `useWalletConnect()`. Both must be 0x-prefixed hex strings. Always provide both.
 
 ### Required tsconfig.json Settings
 
@@ -1621,6 +1876,10 @@ You **MUST** implement `onReorg()` to revert state for reorged blocks. Failure t
 
 ## Frontend Development
 
+### Contract Interaction: ALWAYS Use `opnet` npm Package + ABI
+
+**Every frontend that interacts with an OPNet contract MUST use the `opnet` npm package with the contract's ABI definition.** No exceptions. No raw RPC. No manual encoding. The ABI provides type-safe method calls, automatic calldata encoding/decoding, and proper error handling. See the ABI reference docs (`docs/core-opnet-abi-reference-*.md`) for built-in and custom ABI definitions.
+
 ### Configuration Standard
 
 Frontend configs **MUST** use `docs/eslint-react.json` and `docs/tsconfig-generic.json`:
@@ -1668,9 +1927,11 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 
 ---
 
-## Official Wallet: OP_WALLET
+## Official Wallet: OP_WALLET (MANDATORY)
 
 **OP_WALLET is the main and official wallet supporting OPNet.** It is developed by the OPNet team and provides the most complete feature set for interacting with the OPNet Bitcoin L1 smart contract ecosystem.
+
+**ALL OPNet dApps MUST integrate OP_WALLET via `@btc-vision/opwallet`.** This is non-negotiable.
 
 ### Why OP_WALLET is Required for Full OPNet Support
 
@@ -1689,9 +1950,15 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 3. **Native OPNet Features**: Direct access to all OPNet features as they are released
 4. **Optimized UX**: Built specifically for OPNet dApp interactions
 
-### Integration via WalletConnect
+### Integration
 
-Use `@btc-vision/walletconnect` to integrate OP_WALLET into your dApp:
+Install `@btc-vision/opwallet` for wallet integration in your frontend:
+
+```bash
+npm i @btc-vision/opwallet
+```
+
+Use `@btc-vision/walletconnect` alongside it for the connection UI:
 
 ```typescript
 import { WalletConnectProvider, useWalletConnect, SupportedWallets } from '@btc-vision/walletconnect';
@@ -1702,7 +1969,7 @@ import { WalletConnectProvider, useWalletConnect, SupportedWallets } from '@btc-
 </WalletConnectProvider>
 
 // In your component
-const { connectToWallet, mldsaPublicKey, signMLDSAMessage } = useWalletConnect();
+const { connectToWallet, mldsaPublicKey, hashedMLDSAKey, publicKey, signMLDSAMessage } = useWalletConnect();
 
 // Connect specifically to OP_WALLET for full feature support
 connectToWallet(SupportedWallets.OP_WALLET);
@@ -1711,6 +1978,9 @@ connectToWallet(SupportedWallets.OP_WALLET);
 if (mldsaPublicKey) {
   const signature = await signMLDSAMessage('Your message');
 }
+
+// For Address.fromString — use hashedMLDSAKey (32-byte hash), NOT mldsaPublicKey (raw ~2500 bytes)
+const senderAddress = Address.fromString(hashedMLDSAKey, publicKey);
 ```
 
 ### Installation

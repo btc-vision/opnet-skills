@@ -135,14 +135,14 @@ const {
   walletAddress,       // string | null - Connected wallet's Bitcoin address
   walletInstance,      // Unisat | null - Raw wallet instance
   network,             // WalletConnectNetwork | null - Current network
-  publicKey,           // string | null - Connected wallet's public key (hex)
+  publicKey,           // string | null - Connected wallet's Bitcoin tweaked public key (33 bytes compressed, 0x hex)
   address,             // Address | null - Address object with MLDSA support
   connecting,          // boolean - Connection in progress
   provider,            // AbstractRpcProvider | null - OP_NET RPC provider
   signer,              // UnisatSigner | null - Transaction signer
   walletBalance,       // WalletBalance | null - Detailed balance info
-  mldsaPublicKey,      // string | null - MLDSA public key (OP_WALLET only)
-  hashedMLDSAKey,      // string | null - SHA256 hash of MLDSA public key
+  mldsaPublicKey,      // string | null - Raw ML-DSA public key (~2500 bytes, 0x hex) (OP_WALLET only). NOT for Address.fromString().
+  hashedMLDSAKey,      // string | null - 32-byte SHA256 hash of ML-DSA public key (0x hex). USE THIS for Address.fromString() first param.
 
   // Methods
   openConnectModal,    // () => void - Opens wallet selection modal
@@ -152,6 +152,40 @@ const {
   verifyMLDSASignature // (message: string, signature: MLDSASignature) => Promise<boolean>
 } = useWalletConnect();
 ```
+
+## CRITICAL: Using WalletConnect Values with Address.fromString()
+
+**`Address.fromString()` requires TWO specific parameters. Getting them wrong is the #1 frontend bug.**
+
+```typescript
+const {
+  publicKey,       // Bitcoin tweaked public key (33 bytes, 0x hex)
+  mldsaPublicKey,  // Raw ML-DSA public key (~2500 bytes) — DO NOT use for Address.fromString()
+  hashedMLDSAKey,  // 32-byte SHA256 hash of ML-DSA key — USE THIS for Address.fromString()
+  walletAddress,   // Bitcoin address (bc1q.../bc1p...) — ONLY for display and refundTo
+} = useWalletConnect();
+
+// CORRECT — Address.fromString(hashedMLDSAKey, publicKey)
+const senderAddress = Address.fromString(hashedMLDSAKey, publicKey);
+const contract = getContract<IMyContract>(addr, abi, provider, network, senderAddress);
+
+// WRONG — mldsaPublicKey is the RAW key (~2500 bytes), not the 32-byte hash
+const bad1 = Address.fromString(mldsaPublicKey, publicKey); // ❌
+
+// WRONG — walletAddress is a bech32 string, not a public key
+const bad2 = Address.fromString(walletAddress); // ❌
+
+// WRONG — only one parameter
+const bad3 = Address.fromString(publicKey); // ❌
+```
+
+**Summary:**
+| WalletConnect value | What it is | Use for |
+|---|---|---|
+| `walletAddress` | Bitcoin bech32 address (bc1q/bc1p) | Display to user, `refundTo` in sendTransaction |
+| `publicKey` | Bitcoin tweaked pubkey (33 bytes hex) | `Address.fromString()` **second** param |
+| `mldsaPublicKey` | Raw ML-DSA public key (~2500 bytes hex) | MLDSA signing/verification ONLY |
+| `hashedMLDSAKey` | 32-byte SHA256 hash of ML-DSA key | `Address.fromString()` **first** param |
 
 ## Types
 

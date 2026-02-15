@@ -214,7 +214,7 @@ Specify exactly which UTXOs to use:
 ```typescript
 const allUtxos = await provider.utxoManager.getUTXOs({
     address: wallet.p2tr,
-    optimize: true,
+    optimize: false,
 });
 
 // Filter for specific UTXOs
@@ -444,7 +444,7 @@ async function fullConfigurationExample() {
     // Get UTXOs
     const utxos = await provider.utxoManager.getUTXOs({
         address: wallet.p2tr,
-        optimize: true,
+        optimize: false,
     });
 
     // Treasury payment

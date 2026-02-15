@@ -21,7 +21,10 @@
         "@btc-vision/transaction": "1.8.0-beta.10",
         "@btc-vision/bip32": "7.0.2",
         "@btc-vision/ecpair": "4.0.2",
-        "@noble/hashes": "latest"
+        "@noble/hashes": "2.0.1"
+    },
+    "overrides": {
+        "@noble/hashes": "2.0.1"
     },
     "devDependencies": {
         "@types/react": "latest",
