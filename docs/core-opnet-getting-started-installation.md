@@ -59,19 +59,32 @@ npm install opnet @btc-vision/transaction @btc-vision/bitcoin
 
 ## TypeScript Configuration
 
-Copy config templates from `setup/` folder:
+The opnet library is written in TypeScript and requires **ES2025** or newer. Update your `tsconfig.json`:
 
-```bash
-cp setup/.prettierrc .prettierrc
-cp setup/eslint-generic.json .eslintrc.json
-cp setup/tsconfig-generic.json tsconfig.json
+```json
+{
+    "compilerOptions": {
+        "target": "ES2025",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "lib": ["ES2025"],
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "outDir": "./build",
+        "declaration": true,
+        "resolveJsonModule": true
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "build"]
+}
 ```
 
 ### Key Configuration Options
 
 | Option | Value | Reason |
 |--------|-------|--------|
-| `target` | `ESNext` | Required for BigInt, modern async features |
+| `target` | `ES2025` | Required for BigInt, modern async features |
 | `module` | `NodeNext` | ESM support for Node.js |
 | `moduleResolution` | `NodeNext` | Proper module resolution |
 | `strict` | `true` | Type-safe contract interactions |
@@ -106,12 +119,12 @@ my-opnet-app/
         "start": "node build/index.js"
     },
     "dependencies": {
-        "opnet": "1.8.1-beta.13",
-        "@btc-vision/transaction": "1.8.0-beta.10",
-        "@btc-vision/bitcoin": "7.0.0-alpha.11"
+        "opnet": "^1.7.35",
+        "@btc-vision/transaction": "^1.7.31",
+        "@btc-vision/bitcoin": "^6.5.4"
     },
     "devDependencies": {
-        "typescript": "latest"
+        "typescript": "^5.9.2"
     }
 }
 ```
@@ -287,7 +300,16 @@ Ensure your `package.json` has `"type": "module"` for ESM:
 
 ### TypeScript Import Errors
 
-If TypeScript can't find module types, ensure you're using `setup/tsconfig-generic.json` with `moduleResolution: "NodeNext"` and `esModuleInterop: true`.
+If TypeScript can't find module types, verify `tsconfig.json`:
+
+```json
+{
+    "compilerOptions": {
+        "moduleResolution": "NodeNext",
+        "esModuleInterop": true
+    }
+}
+```
 
 ### Node.js Version
 

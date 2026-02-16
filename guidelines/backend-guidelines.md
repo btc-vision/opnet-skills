@@ -132,21 +132,27 @@ npx npm-check-updates -u && npm install
 
 ## Package Versions
 
-**NEVER GUESS PACKAGE VERSIONS.**
+**NEVER GUESS PACKAGE VERSIONS. ALWAYS run:**
+
+```bash
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+```
 
 ```json
 {
     "type": "module",
     "dependencies": {
-        "@btc-vision/hyper-express": "^6.17.3",
-        "@btc-vision/uwebsocket.js": "^21.2.0",
-        "opnet": "1.8.1-beta.13",
-        "@btc-vision/transaction": "1.8.0-beta.10",
-        "@btc-vision/bitcoin": "7.0.0-alpha.11"
+        "@btc-vision/hyper-express": "latest",
+        "@btc-vision/uwebsocket.js": "latest",
+        "opnet": "rc",
+        "@btc-vision/transaction": "rc",
+        "@btc-vision/bitcoin": "rc"
     },
     "devDependencies": {
         "typescript": "latest",
-        "@types/node": "latest"
+        "@types/node": "latest",
+        "eslint": "^9.39.2",
+        "@eslint/js": "^9.39.2"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"

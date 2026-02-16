@@ -47,17 +47,41 @@ This document covers package versions, configurations, and project setup for ALL
 
 ## Package Versions
 
-**NEVER GUESS PACKAGE VERSIONS.** OPNet packages are actively developed with beta releases. Using wrong versions causes build failures.
+**NEVER GUESS PACKAGE VERSIONS.** OPNet packages use `@rc` release tags and specific pinned versions. Using wrong versions causes build failures.
 
-### MANDATORY: Update Packages After Setup
+### MANDATORY: Install Commands
 
-**ALWAYS run this command after creating any project or after `npm install`:**
+**ALWAYS run the appropriate command after creating any project. This is NON-NEGOTIABLE.**
+
+#### For Non-Contract Projects (Frontend, Backend, Plugins, Tests)
 
 ```bash
-npx npm-check-updates -u && npm install
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
 ```
 
-This ensures all packages are updated to their latest compatible versions. **Never skip this step.**
+#### For Contract Projects (AssemblyScript)
+
+```bash
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/opnet-transform@1.1.0 @btc-vision/assemblyscript@^0.29.2 @btc-vision/as-bignum@0.1.2 @btc-vision/btc-runtime@rc --prefer-online
+```
+
+**These commands update ALL dependencies to latest, then pin the OPNet-specific packages to their correct versions. Never skip this step.**
+
+### Package Version Reference
+
+| Package | Version | Used In |
+|---------|---------|---------|
+| `eslint` | `^9.39.2` | All projects |
+| `@eslint/js` | `^9.39.2` | All projects |
+| `@btc-vision/bitcoin` | `@rc` | Frontend, Backend, Plugins, Tests |
+| `@btc-vision/transaction` | `@rc` | Frontend, Backend, Plugins, Tests |
+| `opnet` | `@rc` | Frontend, Backend, Plugins, Tests |
+| `@btc-vision/bip32` | latest | Frontend, Backend |
+| `@btc-vision/ecpair` | latest | Frontend, Backend |
+| `@btc-vision/btc-runtime` | `@rc` | Contracts |
+| `@btc-vision/opnet-transform` | `1.1.0` | Contracts |
+| `@btc-vision/assemblyscript` | `^0.29.2` | Contracts |
+| `@btc-vision/as-bignum` | `0.1.2` | Contracts |
 
 ### Contract Dependencies
 
@@ -65,11 +89,13 @@ This ensures all packages are updated to their latest compatible versions. **Nev
 {
     "dependencies": {
         "@btc-vision/as-bignum": "0.1.2",
-        "@btc-vision/btc-runtime": "1.11.0-rc.4"
+        "@btc-vision/btc-runtime": "rc"
     },
     "devDependencies": {
-        "@btc-vision/assemblyscript": "latest",
-        "@btc-vision/opnet-transform": "1.0.6"
+        "@btc-vision/assemblyscript": "^0.29.2",
+        "@btc-vision/opnet-transform": "1.1.0",
+        "eslint": "^9.39.2",
+        "@eslint/js": "^9.39.2"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"
@@ -85,14 +111,16 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
 {
     "type": "module",
     "dependencies": {
-        "@btc-vision/unit-test-framework": "0.4.10",
-        "@btc-vision/transaction": "1.8.0-beta.10"
+        "@btc-vision/unit-test-framework": "latest",
+        "@btc-vision/transaction": "rc"
     },
     "devDependencies": {
         "typescript": "latest",
         "ts-node": "latest",
         "gulp": "latest",
-        "@types/node": "latest"
+        "@types/node": "latest",
+        "eslint": "^9.39.2",
+        "@eslint/js": "^9.39.2"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"
@@ -107,12 +135,12 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
     "dependencies": {
         "react": "latest",
         "react-dom": "latest",
-        "opnet": "1.8.1-beta.13",
-        "@btc-vision/transaction": "1.8.0-beta.10",
-        "@btc-vision/bitcoin": "7.0.0-alpha.11",
-        "@btc-vision/ecpair": "4.0.2",
-        "@btc-vision/bip32": "7.0.2",
-        "@btc-vision/walletconnect": "1.10.0-beta.0"
+        "opnet": "rc",
+        "@btc-vision/transaction": "rc",
+        "@btc-vision/bitcoin": "rc",
+        "@btc-vision/ecpair": "latest",
+        "@btc-vision/bip32": "latest",
+        "@btc-vision/walletconnect": "latest"
     },
     "devDependencies": {
         "vite": "latest",
@@ -122,7 +150,8 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
         "@types/react": "latest",
         "@types/react-dom": "latest",
         "@types/node": "latest",
-        "eslint": "latest",
+        "eslint": "^9.39.2",
+        "@eslint/js": "^9.39.2",
         "@typescript-eslint/eslint-plugin": "latest",
         "@typescript-eslint/parser": "latest",
         "eslint-plugin-react": "latest",
@@ -136,7 +165,7 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
 }
 ```
 
-**Always use "latest" for tooling dependencies** (react, vite, typescript, eslint, etc.). **Keep @btc-vision and opnet packages version-specific** as they require tested compatible versions.
+**Always run the mandatory install command above after `npm install`.** The `@rc` tags ensure you get the latest release candidate of OPNet packages. `eslint` and `@eslint/js` are pinned to `^9.39.2`.
 
 ---
 

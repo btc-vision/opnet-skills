@@ -265,8 +265,13 @@ For questions like:
 - "What's the difference between OPNet and Runes/Ordinals?"
 - "Why can't contracts hold BTC?"
 - "What is transaction pinning?"
+- "How is OPNet different from Ethereum?"
+- "How do I port my Solidity contract to OPNet?"
+- "What's the equivalent of ecrecover on OPNet?"
 
 **See the full guideline for complete topic mappings and what docs to read for each question type.**
+
+**For Ethereum migration questions:** Read `guidelines/ethereum-migration-guidelines.md` -- covers concept mapping from Ethereum to OPNet (addresses, signatures, tokens, wallets, transactions, DEX patterns).
 
 **IMPORTANT: For conceptual questions, read the relevant docs/sections BEFORE answering. Do not guess or make assumptions about how OPNet works.**
 
@@ -455,12 +460,20 @@ Always engage professional auditors for contracts handling real value.
 **You MUST actually RUN these commands, not just mention them.**
 
 ### Step 1: Install Dependencies
+
+**For Non-Contract Projects:**
 ```bash
-npm install
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
 ```
-- Run this FIRST before any other commands
+
+**For Contract Projects:**
+```bash
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/opnet-transform@1.1.0 @btc-vision/assemblyscript@^0.29.2 @btc-vision/as-bignum@0.1.2 @btc-vision/btc-runtime@rc --prefer-online
+```
+
+- Run the appropriate command FIRST before any other commands
 - If package.json was created or modified, this is REQUIRED
-- Do NOT skip this step
+- Do NOT skip this step - do NOT just run `npm install` alone
 
 ### Step 2: Run Prettier
 ```bash
@@ -575,8 +588,11 @@ npm run test
 **You MUST run and PASS all verification commands BEFORE packaging:**
 
 ```bash
-# 1. Install dependencies
-npm install
+# 1. Install dependencies (use the appropriate command for your project type)
+# Non-contract:
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+# Contract:
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/opnet-transform@1.1.0 @btc-vision/assemblyscript@^0.29.2 @btc-vision/as-bignum@0.1.2 @btc-vision/btc-runtime@rc --prefer-online
 
 # 2. Format code
 npm run format
@@ -2020,7 +2036,25 @@ Install OP_WALLET from the [Chrome Web Store](https://chromewebstore.google.com/
 |------|-----------------|
 | Node.js | >= 24.0.0 |
 | TypeScript | >= 5.9.3 |
-| AssemblyScript | `@btc-vision/assemblyscript` (custom fork with closure support) |
+| ESLint | `^9.39.2` |
+| @eslint/js | `^9.39.2` |
+| AssemblyScript | `@btc-vision/assemblyscript@^0.29.2` (custom fork with closure support) |
+
+### MANDATORY Install Commands
+
+**For Non-Contract Projects (Frontend, Backend, Plugins, Tests):**
+
+```bash
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+```
+
+**For Contract Projects (AssemblyScript):**
+
+```bash
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/opnet-transform@1.1.0 @btc-vision/assemblyscript@^0.29.2 @btc-vision/as-bignum@0.1.2 @btc-vision/btc-runtime@rc --prefer-online
+```
+
+**ALWAYS run the appropriate command after creating package.json. No exceptions.**
 
 ---
 

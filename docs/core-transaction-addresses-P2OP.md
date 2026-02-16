@@ -168,13 +168,13 @@ A valid P2OP address must:
 
 ## Comparison with Other Address Types
 
-| Feature | P2OP | P2TR | P2WDA |
-|---------|------|------|-------|
-| Witness Version | 16 | 1 | 0 |
-| Quantum Resistant | Yes | No | Yes |
-| Key Type | ML-DSA | Schnorr | ML-DSA |
-| Purpose | OPNet identity | Standard Taproot | Delayed spending |
-| Address Size | ~62 chars | ~62 chars | ~62 chars |
+| Feature | P2OP | P2TR |
+|---------|------|------|
+| Witness Version | 16 | 1 |
+| Quantum Resistant | Yes | No |
+| Key Type | ML-DSA | Schnorr |
+| Purpose | OPNet identity | Standard Taproot |
+| Address Size | ~62 chars | ~62 chars |
 
 ## Security Considerations
 
@@ -232,7 +232,7 @@ function validateContractAddress(address: string): boolean {
 
 ## Related Documentation
 
-- [P2WDA Addresses](./P2WDA.md) - Time-locked quantum addresses
+
 - [Quantum Support](../quantum-support/README.md) - Full quantum cryptography guide
 - [Address Generation](../quantum-support/03-address-generation.md) - Complete address derivation
 - [BIP32 Library](../../../clients/bip32/README.md) - Key derivation with ML-DSA

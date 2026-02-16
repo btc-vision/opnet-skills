@@ -5,16 +5,16 @@ This guide covers how to integrate OPNet into frontend applications, including w
 ## Required Dependencies
 
 ```bash
-npm install opnet @btc-vision/bitcoin @btc-vision/transaction @btc-vision/bip32 @btc-vision/ecpair
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
 ```
 
 ```json
 {
-  "@btc-vision/bip32": "^7.0.2",
-  "@btc-vision/bitcoin": "^7.0.0-alpha.11",
-  "@btc-vision/ecpair": "^4.0.2",
-  "@btc-vision/transaction": "^1.8.0-beta.10",
-  "opnet": "^1.8.1-beta.13"
+  "@btc-vision/bip32": "latest",
+  "@btc-vision/bitcoin": "rc",
+  "@btc-vision/ecpair": "latest",
+  "@btc-vision/transaction": "rc",
+  "opnet": "rc"
 }
 ```
 

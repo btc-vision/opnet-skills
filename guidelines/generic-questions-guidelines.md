@@ -10,13 +10,14 @@ This document covers how to handle questions about OPNet architecture, concepts,
 
 1. [How to Handle Generic Questions](#how-to-handle-generic-questions)
 2. [Example Questions and What to Read](#example-questions-and-what-to-read)
-3. [OPNet Architecture Topics](#opnet-architecture-topics)
-4. [Address Systems and Identity](#address-systems-and-identity)
-5. [Token Standards](#token-standards)
-6. [Bitcoin Integration](#bitcoin-integration)
-7. [Security Topics](#security-topics)
-8. [DEX and Swap Topics](#dex-and-swap-topics)
-9. [Choosing Between Approaches](#choosing-between-approaches)
+3. [Ethereum Migration](#ethereum-migration)
+4. [OPNet Architecture Topics](#opnet-architecture-topics)
+5. [Address Systems and Identity](#address-systems-and-identity)
+6. [Token Standards](#token-standards)
+7. [Bitcoin Integration](#bitcoin-integration)
+8. [Security Topics](#security-topics)
+9. [DEX and Swap Topics](#dex-and-swap-topics)
+10. [Choosing Between Approaches](#choosing-between-approaches)
 
 ---
 
@@ -65,6 +66,32 @@ This document covers how to handle questions about OPNet architecture, concepts,
 | "How is OPNet different from a sidechain?" | SKILL.md "What is OPNet" section - it's L1, not a sidechain |
 | "What happens if my transaction reverts?" | SKILL.md "Key Principles" - partial reverts section |
 | "Does OPNet have a gas token?" | SKILL.md "Key Principles" - no gas token, uses Bitcoin |
+| "How is OPNet different from Ethereum?" | `guidelines/ethereum-migration-guidelines.md` - Section 1 (Platform Differences) |
+| "How do I port my Solidity contract?" | `guidelines/ethereum-migration-guidelines.md` - entire guide (it's conceptual, not a transpiler) |
+| "What's the equivalent of ecrecover?" | `guidelines/ethereum-migration-guidelines.md` - Section 3 (Quantum-Safe Migration) |
+| "How do I do an airdrop like on Ethereum?" | `guidelines/ethereum-migration-guidelines.md` - Section 5, plus `docs/core-opnet-address-systems-airdrop-pattern.md` |
+| "What's the OPNet equivalent of ERC-20?" | `guidelines/ethereum-migration-guidelines.md` - Section 4 (Token Standards) |
+| "How do I connect a wallet like MetaMask?" | `guidelines/ethereum-migration-guidelines.md` - Section 6 (Frontend / Wallet) |
+| "Why can't I just send ETH/BTC to a contract?" | `guidelines/ethereum-migration-guidelines.md` - Section 8 (Verify-Don't-Custody) |
+| "Does OPNet have payable functions?" | `guidelines/ethereum-migration-guidelines.md` - Section 8 (no payable, verify-don't-custody) |
+
+---
+
+## Ethereum Migration
+
+| Topic | Files to Read |
+|-------|---------------|
+| Full Ethereum-to-OPNet concept mapping | `guidelines/ethereum-migration-guidelines.md` |
+| Platform differences overview | `guidelines/ethereum-migration-guidelines.md` - Section 1 |
+| Dual address system vs Ethereum addresses | `guidelines/ethereum-migration-guidelines.md` - Section 2 |
+| Signature verification (ecrecover vs verifySignature) | `guidelines/ethereum-migration-guidelines.md` - Section 3 |
+| ERC-20 to OP-20 mapping | `guidelines/ethereum-migration-guidelines.md` - Section 4 |
+| Airdrop patterns | `guidelines/ethereum-migration-guidelines.md` - Section 5 |
+| Frontend/wallet integration | `guidelines/ethereum-migration-guidelines.md` - Section 6 |
+| Transaction model differences | `guidelines/ethereum-migration-guidelines.md` - Section 7 |
+| Contract design patterns | `guidelines/ethereum-migration-guidelines.md` - Section 8 |
+| DEX/DeFi patterns | `guidelines/ethereum-migration-guidelines.md` - Section 9 |
+| Quick reference cheat sheet | `guidelines/ethereum-migration-guidelines.md` - Section 10 |
 
 ---
 

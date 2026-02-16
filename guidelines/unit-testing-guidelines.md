@@ -128,17 +128,24 @@ my-contract/
 
 Tests can share the contract's package.json or have their own. Either way, include:
 
+**ALWAYS run after creating package.json:**
+```bash
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+```
+
 ```json
 {
     "type": "module",
     "dependencies": {
-        "@btc-vision/unit-test-framework": "0.4.10",
-        "@btc-vision/transaction": "1.8.0-beta.10"
+        "@btc-vision/unit-test-framework": "latest",
+        "@btc-vision/transaction": "rc"
     },
     "devDependencies": {
         "typescript": "latest",
         "ts-node": "latest",
-        "@types/node": "latest"
+        "@types/node": "latest",
+        "eslint": "^9.39.2",
+        "@eslint/js": "^9.39.2"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"
@@ -1092,11 +1099,9 @@ await contract.mint();
 }
 ```
 
-**CORRECT:**
-```json
-{
-    "@btc-vision/unit-test-framework": "0.4.10"
-}
+**CORRECT -- always run the install command:**
+```bash
+npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
 ```
 
 ### 7. Missing --esm Flag

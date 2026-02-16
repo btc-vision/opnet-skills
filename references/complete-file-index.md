@@ -90,6 +90,7 @@
 | `docs/core-transaction-transaction-factory-interfaces.md` | **TransactionFactory interfaces (fees, notes, anchors, send-max)** |
 | `docs/core-transaction-offline-transaction-signing.md` | Offline signing |
 | `docs/core-transaction-addresses-P2OP.md` | P2OP address format |
+
 | `docs/core-transaction-quantum-support-README.md` | Quantum overview |
 | `docs/core-transaction-quantum-support-01-introduction.md` | Quantum intro |
 | `docs/core-transaction-quantum-support-02-mnemonic-and-wallet.md` | Quantum wallet |
@@ -210,6 +211,20 @@
 | `docs/plugins-plugin-sdk-README.md` | Plugin SDK |
 | `docs/plugins-opnet-node-README.md` | OPNet node |
 | `docs/plugins-opnet-node-docker-README.md` | Docker setup |
+
+### Guidelines
+
+| File | Description |
+|------|-------------|
+| `guidelines/audit-guidelines.md` | Security audit guide |
+| `guidelines/backend-guidelines.md` | Backend development patterns |
+| `guidelines/contracts-guidelines.md` | Smart contract patterns |
+| `guidelines/ethereum-migration-guidelines.md` | **Ethereum to OPNet concept mapping guide** |
+| `guidelines/frontend-guidelines.md` | Frontend development patterns |
+| `guidelines/generic-questions-guidelines.md` | Topic routing for conceptual questions |
+| `guidelines/plugin-guidelines.md` | Plugin development patterns |
+| `guidelines/setup-guidelines.md` | Project setup and configuration |
+| `guidelines/unit-testing-guidelines.md` | Unit testing patterns |
 
 ### Templates
 

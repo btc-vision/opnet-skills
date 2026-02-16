@@ -1,105 +1,35 @@
-# OPNet - Transaction Builder
+# OPNet Transaction Library Documentation
 
-![Bitcoin](https://img.shields.io/badge/Bitcoin-000?style=for-the-badge&logo=bitcoin&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-![NodeJS](https://img.shields.io/badge/Node%20js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![NPM](https://img.shields.io/badge/npm-CB3837?style=for-the-badge&logo=npm&logoColor=white)
-![Gulp](https://img.shields.io/badge/GULP-%23CF4647.svg?style=for-the-badge&logo=gulp&logoColor=white)
-![ESLint](https://img.shields.io/badge/ESLint-4B3263?style=for-the-badge&logo=eslint&logoColor=white)
+Complete documentation for the OPNet Transaction Library - Bitcoin transaction building with quantum-resistant cryptography support.
 
-[![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
+## Documentation Index
 
-## Overview
+### Core Concepts
 
-This library is a modern and easy-to-use solution for developers looking to work with Bitcoin transactions and OP_NET
-technologies. The OP_NET Transaction Builder library allows you to create and sign transactions for Bitcoin. Written in
-TypeScript, this library provides a comprehensive set of functions to facilitate the creation, reading, and manipulation
-of OP_NET transactions, smart contracts, and other OP_NET-related technologies.
+#### Address Types
+- **[P2OP](./addresses/P2OP.md)** - Pay-to-OPNet contract addresses (witness v16, quantum support for contracts only)
+- **P2QRH** - Pay-to-Quantum-Resistant-Hash user addresses (NOT IMPLEMENTED)
 
-You can create any sort of transaction, and you don't have to bother about managing signer types or anything
-complicated.
+- **P2TR** - Pay-to-Taproot addresses (witness v1)
+- **P2WPKH** - Pay-to-Witness-PubKey-Hash (SegWit v0)
+- **P2PKH** - Pay-to-PubKey-Hash (legacy)
+- **P2SH** - Pay-to-Script-Hash
 
-## Security Audit
+#### Quantum Address
+- **Universal Public Key** - `address.toHex()` returns the SHA256 hash of ML-DSA public key (32 bytes)
+- This is the user's universal identifier across the OPNet protocol
 
-<p align="center">
-  <a href="https://verichains.io">
-    <img src="https://raw.githubusercontent.com/btc-vision/contract-logo/refs/heads/main/public-assets/verichains.png" alt="Verichains" width="100"/>
-  </a>
-</p>
+### Transaction Building
 
-<p align="center">
-  <a href="https://verichains.io">
-    <img src="https://img.shields.io/badge/Security%20Audit-Verichains-4C35E0?style=for-the-badge" alt="Audited by Verichains"/>
-  </a>
-  <a href="./SECURITY.md">
-    <img src="https://img.shields.io/badge/Security-Report-22C55E?style=for-the-badge" alt="Security Report"/>
-  </a>
-</p>
+- **[Transaction Building Guide](./transaction-building.md)** - Complete guide to TransactionFactory, UTXO flow, fee calculation, signing, and all transaction types
+- **[Offline Transaction Signing](./offline-transaction-signing.md)** - Serialize transactions for offline/air-gapped signing, fee bumping (RBF), address rotation, and MultiSig support
 
-This library has been professionally audited by [Verichains](https://verichains.io).
+### Quantum Support (ML-DSA)
 
-See [SECURITY.md](./SECURITY.md) for details.
+**[Complete Quantum Support Guide](./quantum-support/README.md)**
 
-## Installation
-
-```bash
-npm install @btc-vision/transaction
-```
-
-## Documentation
-
-Documentation is available [here](./documentation/README.md) and on [docs.opnet.org](https://docs.opnet.org).
-
-## Prerequisites
-
-- Node.js version 24.x or higher
-- npm (Node Package Manager)
-
-## Development
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/btc-vision/transaction.git
-   ```
-2. Navigate to the repository directory:
-   ```bash
-   cd transaction
-   ```
-3. Install the required dependencies:
-   ```bash
-   npm install
-   ```
-4. Build the project:
-   ```bash
-   npm run build
-   ```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and build
-5. Submit a pull request
-
-See the [pull request template](./.github/PULL_REQUEST_TEMPLATE.md) for requirements.
-
-Contributions are welcome! Please read through the `CONTRIBUTING.md` file for guidelines on how to submit issues,
-feature requests, and pull requests.
-
-## Reporting Issues
-
-- **Bugs**: Use the [bug report template](https://github.com/btc-vision/transaction/issues/new?template=bug_report.yml)
-- **Security**: See [SECURITY.md](./SECURITY.md) - do not open public issues for vulnerabilities
-
-## License
-
-[Apache-2.0](./LICENSE)
-
-## Links
-
-- [OPNet](https://opnet.org)
-- [Documentation](https://docs.opnet.org)
-- [GitHub](https://github.com/btc-vision/transaction)
-- [npm](https://www.npmjs.com/package/@btc-vision/transaction)
-- [Verichains](https://verichains.io)
+- [Introduction to ML-DSA](./quantum-support/01-introduction.md) - Post-quantum cryptography overview
+- [Mnemonic & Wallet Management](./quantum-support/02-mnemonic-and-wallet.md) - BIP39 + BIP360 quantum wallets
+- [Address Generation](./quantum-support/03-address-generation.md) - All address types
+- [Message Signing](./quantum-support/04-message-signing.md) - ML-DSA and Schnorr signatures
+- [Address Verification](./quantum-support/05-address-verification.md) - Validation and type detection

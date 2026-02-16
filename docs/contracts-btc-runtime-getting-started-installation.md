@@ -50,30 +50,179 @@ npm init -y
 ### 2. Install Dependencies
 
 ```bash
-npm install @btc-vision/btc-runtime@1.11.0-rc.4 @btc-vision/as-bignum@0.1.2 @btc-vision/opnet-transform@1.0.6 @btc-vision/assemblyscript
-npm install --save-dev prettier typescript
+npm install @btc-vision/btc-runtime @btc-vision/as-bignum @btc-vision/opnet-transform
+npm install --save-dev assemblyscript prettier typescript
 ```
 
 ### 3. Create Configuration Files
 
-Copy templates from the `setup/` folder:
+#### `asconfig.json`
 
-```bash
-cp setup/asconfig.json asconfig.json
-cp setup/.prettierrc .prettierrc
-cp setup/eslint-contract.json .eslintrc.json
+```json
+{
+    "targets": {
+        "token": {
+            "outFile": "build/MyToken.wasm",
+            "use": ["abort=src/token/index/abort"]
+        }
+    },
+    "options": {
+        "sourceMap": false,
+        "optimizeLevel": 3,
+        "shrinkLevel": 1,
+        "converge": true,
+        "noAssert": false,
+        "enable": [
+            "sign-extension",
+            "mutable-globals",
+            "nontrapping-f2i",
+            "bulk-memory",
+            "simd",
+            "reference-types",
+            "multi-value"
+        ],
+        "runtime": "stub",
+        "memoryBase": 0,
+        "initialMemory": 1,
+        "exportStart": "start",
+        "transform": "@btc-vision/opnet-transform"
+    }
+}
 ```
 
-Create `src/tsconfig.json` for AssemblyScript:
+#### `package.json`
+
+```json
+{
+    "name": "my-opnet-contract",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "build:token": "asc src/token/index.ts --target token --measure --uncheckedBehavior never"
+    },
+    "dependencies": {
+        "@btc-vision/as-bignum": "^0.0.6",
+        "@btc-vision/btc-runtime": "^1.10.8",
+        "@btc-vision/opnet-transform": "^0.1.12"
+    },
+    "devDependencies": {
+        "@btc-vision/assemblyscript": "^0.29.2",
+        "prettier": "^3.7.4"
+    }
+}
+```
+
+#### `tsconfig.json`
+
+```json
+{
+    "compilerOptions": {
+        "module": "esnext",
+        "declaration": true,
+        "target": "esnext",
+        "noImplicitAny": true,
+        "removeComments": true,
+        "suppressImplicitAnyIndexErrors": false,
+        "preserveConstEnums": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": false,
+        "sourceMap": false,
+        "moduleDetection": "force",
+        "experimentalDecorators": true,
+        "lib": ["es6"],
+        "strict": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true,
+        "alwaysStrict": true,
+        "moduleResolution": "node",
+        "allowJs": false,
+        "incremental": true,
+        "allowSyntheticDefaultImports": true,
+        "outDir": "build"
+    },
+    "include": [
+        "./tests/*.ts",
+        "./tests/**/*.ts"
+    ]
+}
+```
+
+#### `src/tsconfig.json`
 
 ```json
 {
     "extends": "@btc-vision/opnet-transform/std/assembly.json",
-    "include": ["./**/*.ts"]
+    "include": [
+        "./**/*.ts"
+    ]
 }
 ```
 
-See `setup/README.md` for all available config templates.
+#### `.prettierrc.json`
+
+```json
+{
+    "printWidth": 100,
+    "trailingComma": "all",
+    "tabWidth": 4,
+    "semi": true,
+    "singleQuote": true,
+    "quoteProps": "as-needed",
+    "bracketSpacing": true,
+    "bracketSameLine": true,
+    "arrowParens": "always",
+    "singleAttributePerLine": true
+}
+```
+
+#### `.vscode/settings.json`
+
+```json
+{
+    "eslint.validate": ["javascript", "typescript"],
+    "prettier.useEditorConfig": false,
+    "prettier.useTabs": false,
+    "prettier.configPath": ".prettierrc.json",
+    "prettier.requireConfig": true,
+    "prettier.tabWidth": 4,
+    "prettier.singleQuote": true,
+    "editor.formatOnSave": true
+}
+```
+
+#### `.gitignore`
+
+```gitignore
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+build/
+debug/
+
+# IDE
+.idea/
+.vs/
+.vscode-test/
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+
+# Keys
+*.key
+*.wallet
+```
 
 ### 4. Create Project Structure
 
