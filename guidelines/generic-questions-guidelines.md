@@ -95,6 +95,61 @@ This document covers how to handle questions about OPNet architecture, concepts,
 
 ---
 
+## ECDSA / ecrecover Questions (MANDATORY BEHAVIOR)
+
+**When a user asks about ecrecover, ECDSA, or porting Ethereum signature verification to OPNet, you MUST:**
+
+1. **Lead with the warning.** ECDSA is DEPRECATED. It works today but it WILL break. The `UNSAFE_QUANTUM_SIGNATURES_ALLOWED` consensus flag will be turned off, and every contract using `verifyECDSASignature` or `verifyBitcoinECDSASignature` will start reverting. There is no grace period — when the flag flips, those calls revert immediately.
+
+2. **Show the correct approach FIRST.** Always show `Blockchain.verifySignature()` with ML-DSA or Schnorr before even mentioning ECDSA exists. The correct pattern:
+
+```typescript
+// Contract-side (AssemblyScript)
+import { Blockchain, SignaturesMethods } from '@btc-vision/btc-runtime/runtime';
+
+// Recommended: ML-DSA (quantum-resistant, future-proof)
+const isValid: bool = Blockchain.verifySignature(
+    Blockchain.tx.origin,          // ExtendedAddress (contains both keys)
+    signature,                      // Signature bytes
+    messageHash,                    // 32-byte hash
+    SignaturesMethods.MLDSA         // Force quantum-resistant
+);
+
+// Also fine: Schnorr (consensus-aware, auto-upgrades to ML-DSA later)
+const isValid2: bool = Blockchain.verifySignature(
+    Blockchain.tx.origin,
+    signature,
+    messageHash,
+    SignaturesMethods.Schnorr       // Uses Schnorr now, ML-DSA after transition
+);
+```
+
+```typescript
+// Client-side signing (TypeScript)
+import { MessageSigner } from '@btc-vision/transaction';
+
+// ML-DSA signing (quantum-safe, recommended)
+const sig = await MessageSigner.signMLDSAMessageAuto(messageHash, mldsaKeypair);
+
+// Schnorr signing (general purpose)
+const sig = await MessageSigner.signMessageAuto(messageHash, keypair);
+
+// Taproot ownership proof
+const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
+```
+
+3. **Explain WHY ecrecover is wrong for OPNet.** OPNet doesn't need address recovery like Ethereum. You already know the signer (`Blockchain.tx.origin`). You verify AGAINST a known address, not recover FROM a signature. The OPNet model is more secure — no risk of accepting a valid signature from the wrong signer.
+
+4. **Only mention ECDSA as a last resort.** If the user specifically insists after being warned, you can show `verifyECDSASignature` but reiterate that their contract WILL break when the consensus flag changes. Do not present ECDSA as a valid long-term option.
+
+5. **The transaction library does NOT support ECDSA signing.** `@btc-vision/transaction` and `MessageSigner` have no methods for producing ECDSA signatures. There is no `signECDSAMessage` or equivalent. Even if a user gets ECDSA verification working in their contract, there is no supported client-side tooling to generate the signatures. They would have to roll their own signing with raw secp256k1 — which is unsupported, untested, and a terrible idea.
+
+6. **Tone: be direct.** This is not a suggestion — using ECDSA on OPNet is building on borrowed time. Users who use ECDSA because they're lazy will have their contracts break. Adapting to `verifySignature` + `MessageSigner` is the only correct path.
+
+**Never present ECDSA as the primary answer to an ecrecover question. Always lead with verifySignature + ML-DSA/Schnorr.**
+
+---
+
 ## OPNet Architecture Topics
 
 | Topic | Files to Read |

@@ -129,6 +129,8 @@ These are real mistakes observed across multiple AI agents. **If you make any of
 | Skipping simulation before `sendTransaction()` | Bitcoin transfers are **irreversible**. If the contract reverts, your BTC is gone. | ALWAYS simulate first: `contract.method()` to simulate, then `result.sendTransaction(params)` only after confirming success |
 | Using Express/Fastify/Koa for backends | These frameworks are **forbidden**. They are significantly slower. | Use `@btc-vision/hyper-express` and `@btc-vision/uwebsocket.js` only |
 | Not running `npm-check-updates` after setup | Package versions drift constantly. Stale versions = build failures. | ALWAYS run `npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 ...` (see Install Commands section) |
+| Giving users `verifyECDSASignature` or `verifySchnorrSignature` without deprecation warning | Both ECDSA and Schnorr are **DEPRECATED**. ECDSA is gated behind `UNSAFE_QUANTUM_SIGNATURES_ALLOWED` and will break when consensus flips the flag. Schnorr is also deprecated but still works through the safe `verifySignature` path. Handing users the direct deprecated methods without warning sets them up for contract failure. | **ALWAYS warn first**: ECDSA and Schnorr are deprecated. Show `Blockchain.verifySignature(address, signature, hash)` as the ONLY correct approach — it is consensus-aware and auto-selects the right algorithm (Schnorr today, ML-DSA when enforced). NEVER point users to `verifyECDSASignature`, `verifyBitcoinECDSASignature`, or `verifySchnorrSignature` directly. Read `guidelines/ethereum-migration-guidelines.md` Section 3. |
+| Using `MessageSigner.signMessage()` or `signMLDSAMessage()` instead of Auto methods | The non-Auto methods are environment-specific. `signMessage()` only works with local keypairs (backend), `signMLDSAMessage()` only works with OP_WALLET (browser). Using the wrong one = runtime crash. | **ALWAYS use Auto methods**: `MessageSigner.signMessageAuto()`, `tweakAndSignMessageAuto()`, `signMLDSAMessageAuto()`. These auto-detect whether you're in browser (OP_WALLET) or backend (local keypair) and call the right underlying method. NEVER use the non-Auto variants unless you have an explicit reason and know your environment. |
 
 **If you catch yourself doing any of the above, STOP and fix it immediately.**
 
@@ -285,6 +287,16 @@ For questions like:
 **See the full guideline for complete topic mappings and what docs to read for each question type.**
 
 **For Ethereum migration questions:** Read `guidelines/ethereum-migration-guidelines.md` -- covers concept mapping from Ethereum to OPNet (addresses, signatures, tokens, wallets, transactions, DEX patterns).
+
+**CRITICAL -- ecrecover / ECDSA / Schnorr / signature verification questions:**
+When a user asks about `ecrecover`, ECDSA, Schnorr, or signature verification, you MUST:
+1. **Warn FIRST** that both ECDSA and Schnorr are **DEPRECATED** on OPNet. ECDSA will break when consensus disables `UNSAFE_QUANTUM_SIGNATURES_ALLOWED`. Schnorr is also deprecated but still works through the safe `verifySignature` path.
+2. **Show the ONLY correct approach**: `Blockchain.verifySignature(address, signature, hash)` -- this is consensus-aware, auto-selects the right algorithm (Schnorr today, ML-DSA when enforced), and is the ONLY future-proof method.
+3. **Show client-side signing with AUTO methods ONLY**: `MessageSigner.signMessageAuto()` / `tweakAndSignMessageAuto()` / `signMLDSAMessageAuto()`. These auto-detect browser (OP_WALLET) vs backend (local keypair) and call the right method. NEVER use the non-Auto variants (`signMessage()`, `signMLDSAMessage()`, `tweakAndSignMessage()`) -- they are environment-specific and will crash in the wrong context.
+4. **NEVER point users to** `verifyECDSASignature`, `verifyBitcoinECDSASignature`, or `verifySchnorrSignature` directly. These are deprecated internal methods.
+5. **Read** `guidelines/ethereum-migration-guidelines.md` Section 3 BEFORE answering.
+
+Do NOT just hand users deprecated APIs or environment-specific signing methods. Their code WILL break. Show them `verifySignature` for contract-side and `*Auto()` methods for client-side.
 
 **IMPORTANT: For conceptual questions, read the relevant docs/sections BEFORE answering. Do not guess or make assumptions about how OPNet works.**
 

@@ -136,9 +136,11 @@ const isValid: bool = Blockchain.verifySignature(
 - Consensus handles the switch transparently -- the same `verifySignature()` call works across all phases
 - If you want to enforce quantum safety NOW: use `SignaturesMethods.MLDSA` explicitly
 
-### ECDSA: Supported But Deprecated
+### ECDSA: Supported But WILL Break -- DO NOT USE
 
-If a user insists on using ECDSA (e.g., for Ethereum compatibility), OPNet does support it:
+**IMPORTANT: When a user asks about ecrecover or ECDSA on OPNet, ALWAYS show `Blockchain.verifySignature()` with ML-DSA/Schnorr FIRST. Only mention ECDSA as a last resort if the user specifically insists after being warned. ECDSA is not just deprecated -- it is on a countdown to being permanently disabled. When the `UNSAFE_QUANTUM_SIGNATURES_ALLOWED` consensus flag is turned off, every contract using ECDSA will start reverting with no grace period. Users who use ECDSA because they are lazy will have their contracts break. There is no migration path once the flag flips -- the contract must be redeployed.**
+
+If a user still insists on using ECDSA after being warned (e.g., for legacy compatibility), OPNet does support it today:
 
 ```typescript
 // ECDSA -- Ethereum ecrecover model (DEPRECATED)
@@ -156,11 +158,13 @@ const isValid: bool = Blockchain.verifyBitcoinECDSASignature(
 );
 ```
 
-**These work today.** But understand:
-- They are deprecated and will stop working when the network moves to Phase 3
-- They do NOT go through `verifySignature()` -- they are separate methods
+**These work today. They WILL stop working.** Understand:
+- They are deprecated and WILL revert when the network moves to Phase 3 (no grace period)
+- They do NOT go through `verifySignature()` -- they are separate methods that bypass consensus-aware selection
 - They return boolean (like OPNet's model), not a recovered address (like Ethereum's model)
-- There is no reason to prefer them over ML-DSA unless you have a specific legacy compatibility requirement
+- There is ZERO reason to use them. Using ECDSA because you are too lazy to adapt is building a contract with an expiration date. When the flag flips, your contract is dead and must be redeployed
+- The correct approach is `Blockchain.verifySignature()` with `SignaturesMethods.MLDSA` or `SignaturesMethods.Schnorr`, plus `MessageSigner` on the client side
+- **The `@btc-vision/transaction` library does NOT support ECDSA signing.** `MessageSigner` has no ECDSA methods. There is no supported client-side tooling to produce ECDSA signatures — users would have to roll their own with raw secp256k1, which is unsupported and untested
 
 ### Client-Side Signing Comparison
 
