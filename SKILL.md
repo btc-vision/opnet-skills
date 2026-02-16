@@ -1,12 +1,9 @@
 ---
 name: opnet-development
-description: Build on Bitcoin Layer 1 with OP_NET - Bitcoin L1 consensus layer for trustless smart contracts. Use when building AssemblyScript smart contracts, TypeScript libraries, React frontends, or Node plugins for OPNet. Triggers on Bitcoin smart contract development, OP20 tokens, OP721 NFTs, WebAssembly contracts, verify-dont-custody patterns, epoch mining, and OPNet architecture questions.
+description: "Build on Bitcoin Layer 1 with OP_NET - Bitcoin L1 consensus layer for trustless smart contracts. Use when building AssemblyScript smart contracts, TypeScript libraries, React frontends, or Node plugins for OPNet. Triggers on Bitcoin smart contract development, OP20 tokens, OP721 NFTs, WebAssembly contracts, verify-dont-custody patterns, epoch mining, and OPNet architecture questions."
 license: MIT
-compatibility: Requires Node.js >= 24.0.0, TypeScript >= 5.9.3, npm. Works with Claude.ai, Claude Code, and API.
-metadata:
-  author: OPNet
-  version: 1.0.0
-  tags: [bitcoin, smart-contracts, assemblyscript, defi, opnet, op20, op721, wasm]
+compatibility: "Requires Node.js >= 24.0.0, TypeScript >= 5.9.3, npm."
+allowed-tools: Read, Grep, Glob, Bash(npm *), Bash(npx *), Bash(node *), Bash(tsc *), Bash(git *)
 ---
 
 # OPNet Development Skill
@@ -118,6 +115,25 @@ OP_WALLET is the official and ONLY wallet that fully supports OPNet features (ML
 - ❌ **Any IPFS upload method other than the opnet-cli script above**
 
 **ALWAYS use `bash /root/openclaw/skills/opnet-cli/scripts/ipfs-upload.sh` for ALL IPFS uploads. No exceptions.**
+
+---
+
+## COMMON AGENT MISTAKES — DO NOT REPEAT THESE
+
+These are real mistakes observed across multiple AI agents. **If you make any of these, your code is broken.**
+
+| Mistake | Why It's Wrong | Correct Approach |
+|---------|---------------|-----------------|
+| Using Keccak256 selectors (EVM style) | OPNet uses **SHA256**, not Keccak256. This is Bitcoin, not Ethereum. | Use SHA256 for all hashing and method selectors |
+| Calling `approve()` on OP-20 tokens | OP-20 does NOT have `approve()`. It uses `increaseAllowance()` / `decreaseAllowance()` to prevent the well-known approve race condition. | Use `increaseAllowance(spender, amount)` and `decreaseAllowance(spender, amount)` |
+| Passing `bc1p...` addresses to `Address.fromString()` | `Address.fromString()` takes TWO hex pubkey parameters, not a Bech32 address string | `Address.fromString(hashedMLDSAKey, tweakedPublicKey)` — both are hex strings |
+| Using `bitcoinjs-lib` | OPNet has its own Bitcoin library with critical patches and 709x faster PSBT | Use `@btc-vision/bitcoin` — never `bitcoinjs-lib` |
+| Factory-deploys-child-contract pattern | OPNet contracts cannot deploy other contracts. There is no `CREATE` or `CREATE2` opcode. | Deploy each contract separately, then link them via stored addresses |
+| Skipping simulation before `sendTransaction()` | Bitcoin transfers are **irreversible**. If the contract reverts, your BTC is gone. | ALWAYS simulate first: `contract.method()` to simulate, then `result.sendTransaction(params)` only after confirming success |
+| Using Express/Fastify/Koa for backends | These frameworks are **forbidden**. They are significantly slower. | Use `@btc-vision/hyper-express` and `@btc-vision/uwebsocket.js` only |
+| Not running `npm-check-updates` after setup | Package versions drift constantly. Stale versions = build failures. | ALWAYS run `npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 ...` (see Install Commands section) |
+
+**If you catch yourself doing any of the above, STOP and fix it immediately.**
 
 ---
 
