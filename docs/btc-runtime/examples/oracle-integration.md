@@ -7,8 +7,10 @@ A multi-oracle price aggregation system that demonstrates how to build reliable 
 This example demonstrates:
 - Multiple oracle sources
 - Price aggregation strategies
-- Stale data protection
+- Stale data protection (block-based)
 - Deviation thresholds
+
+> **CRITICAL: Never use `medianTimestamp` for time-dependent contract logic.** Bitcoin's Median Time Past (MTP) can be manipulated by miners within a +/- 2 hour window. Always use `Blockchain.block.number` (block height) which is strictly monotonic and tamper-proof. The actual btc-runtime contracts (OP20, OP721, OP20S, Upgradeable) ALL use `block.number` for deadlines.
 - Admin controls for oracle management
 - Decorators for ABI generation
 
@@ -116,7 +118,7 @@ function latestRoundData() external view returns (
 @method({ name: 'asset', type: ABIDataTypes.ADDRESS })
 @returns(
     { name: 'price', type: ABIDataTypes.UINT256 },
-    { name: 'blockNumber', type: ABIDataTypes.UINT64 },
+    { name: 'timestamp', type: ABIDataTypes.UINT64 },
 )
 public getPrice(calldata: Calldata): BytesWriter { }
 ```
@@ -177,7 +179,7 @@ sequenceDiagram
     Oracle1->>BTC: Submit submitPrice(BTC, $50,100) TX
     BTC->>Contract: Execute submitPrice
     Contract->>Contract: Verify oracle authorized
-    Contract->>Storage: Write oracle1 price + block number
+    Contract->>Storage: Write oracle1 price + timestamp
     Contract->>Contract: tryUpdatePrice(BTC)
     Contract->>Storage: Read all oracle prices
     Contract->>Contract: Filter stale prices
@@ -188,7 +190,7 @@ sequenceDiagram
     Oracle2->>BTC: Submit submitPrice(BTC, $50,000) TX
     BTC->>Contract: Execute submitPrice
     Contract->>Contract: Verify oracle authorized
-    Contract->>Storage: Write oracle2 price + block number
+    Contract->>Storage: Write oracle2 price + timestamp
     Contract->>Contract: tryUpdatePrice(BTC)
     Contract->>Storage: Read all oracle prices
     Note over Contract: Only 2 oracles, skip update (need 3)
@@ -198,7 +200,7 @@ sequenceDiagram
     Oracle3->>BTC: Submit submitPrice(BTC, $50,200) TX
     BTC->>Contract: Execute submitPrice
     Contract->>Contract: Verify oracle authorized
-    Contract->>Storage: Write oracle3 price + block number
+    Contract->>Storage: Write oracle3 price + timestamp
     Contract->>Contract: tryUpdatePrice(BTC)
     Contract->>Storage: Read all oracle prices
     Contract->>Contract: Calculate median: $50,100
@@ -212,18 +214,18 @@ sequenceDiagram
 
     Consumer->>BTC: Submit getPrice(BTC) TX
     BTC->>Contract: Execute getPrice
-    Contract->>Storage: Read price + block number
-    Storage-->>Contract: $50,100, block number
+    Contract->>Storage: Read price + timestamp
+    Storage-->>Contract: $50,100, timestamp
     Contract->>Contract: Check staleness
     alt Price is stale
         Contract-->>BTC: Revert: Price is stale
         BTC-->>Consumer: TX Failed
     else Price is fresh
-        Contract-->>BTC: Return ($50,100, block number)
+        Contract-->>BTC: Return ($50,100, timestamp)
         BTC-->>Consumer: TX Success
     end
 
-    Note over Contract,Storage: minOracles = 3, maxDeviation = 5%, maxStaleness = 6 blocks (~1 hour)
+    Note over Contract,Storage: minOracles = 3, maxDeviation = 5%, maxStaleness = 1 hour
 ```
 
 ## Oracle Management
@@ -256,7 +258,7 @@ stateDiagram-v2
     end note
 
     note right of PriceSubmitted
-        Price stored with block number
+        Price stored with timestamp
         Triggers aggregation attempt
         Individual oracle data tracked
     end note
@@ -335,18 +337,18 @@ export class MultiOracle extends OP_NET {
 
     private _minOracles: StoredU8;
     private _maxDeviation: StoredU256;  // In basis points (100 = 1%)
-    private _maxStaleness: StoredU64;   // In blocks (6 blocks ≈ 1 hour)
+    private _maxStaleness: StoredU64;   // In blocks (144 blocks ≈ 24 hours)
 
     // Price data per asset
     private pricesPointer: u16 = Blockchain.nextPointer;
-    private blockNumbersPointer: u16 = Blockchain.nextPointer;
+    private timestampsPointer: u16 = Blockchain.nextPointer;
 
     private _prices: AddressMemoryMap;
-    private _blockNumbers: AddressMemoryMap;
+    private _timestamps: AddressMemoryMap;
 
     // Individual oracle submissions
     private oraclePricesPointer: u16 = Blockchain.nextPointer;
-    private oracleBlockNumbersPointer: u16 = Blockchain.nextPointer;
+    private oracleTimestampsPointer: u16 = Blockchain.nextPointer;
 
     public constructor() {
         super();
@@ -354,10 +356,10 @@ export class MultiOracle extends OP_NET {
         this.oracles = new StoredAddressArray(this.oraclesPointer);
         this._minOracles = new StoredU8(this.minOraclesPointer, 1);
         this._maxDeviation = new StoredU256(this.maxDeviationPointer, EMPTY_POINTER);
-        this._maxStaleness = new StoredU64(this.maxStalenessPointer, 6); // 6 blocks ≈ 1 hour
+        this._maxStaleness = new StoredU64(this.maxStalenessPointer, 6); // 6 blocks (~1 hour)
 
         this._prices = new AddressMemoryMap(this.pricesPointer);
-        this._blockNumbers = new AddressMemoryMap(this.blockNumbersPointer);
+        this._timestamps = new AddressMemoryMap(this.timestampsPointer);
     }
 
     public override onDeployment(calldata: Calldata): void {
@@ -464,7 +466,7 @@ export class MultiOracle extends OP_NET {
         // Store individual oracle submission
         const key = this.oracleAssetKey(oracle, asset);
         this.setOraclePrice(key, price);
-        this.setOracleBlock(key, Blockchain.block.numberU64);
+        this.setOracleBlock(key, Blockchain.block.number);
 
         // Try to update aggregated price
         this.tryUpdatePrice(asset);
@@ -477,7 +479,7 @@ export class MultiOracle extends OP_NET {
      */
     private tryUpdatePrice(asset: Address): void {
         const prices: u256[] = [];
-        const currentBlock = Blockchain.block.numberU64;
+        const currentBlock: u64 = Blockchain.block.number;
         const maxStale = this._maxStaleness.value;
 
         // Collect valid prices from all oracles
@@ -487,11 +489,11 @@ export class MultiOracle extends OP_NET {
             const key = this.oracleAssetKey(oracle, asset);
 
             const price = this.getOraclePrice(key);
-            const submittedBlock = this.getOracleBlock(key);
+            const blockNumber = this.getOracleBlock(key);
 
             // Skip stale or unset prices
             if (price.isZero()) continue;
-            if (currentBlock - submittedBlock > maxStale) continue;
+            if (currentBlock - blockNumber > maxStale) continue;
 
             prices.push(price);
         }
@@ -517,7 +519,7 @@ export class MultiOracle extends OP_NET {
         // Update price
         this._prices.set(asset, medianPrice);
         // AddressMemoryMap stores u256; convert block number to u256
-        this._blockNumbers.set(asset, u256.fromU64(currentBlock));
+        this._timestamps.set(asset, u256.fromU64(currentBlock));
 
         this.emitEvent(new PriceUpdated(asset, medianPrice, currentBlock));
     }
@@ -530,18 +532,18 @@ export class MultiOracle extends OP_NET {
     @method({ name: 'asset', type: ABIDataTypes.ADDRESS })
     @returns(
         { name: 'price', type: ABIDataTypes.UINT256 },
-        { name: 'blockNumber', type: ABIDataTypes.UINT64 },
+        { name: 'timestamp', type: ABIDataTypes.UINT64 },
     )
     public getPrice(calldata: Calldata): BytesWriter {
         const asset = calldata.readAddress();
 
         const price = this._prices.get(asset);
         // AddressMemoryMap returns u256; convert to u64 for block number
-        const updatedAtBlock: u64 = this._blockNumbers.get(asset).toU64();
+        const blockNumber: u64 = this._timestamps.get(asset).toU64();
 
-        // Check for stale price using block height (not timestamp - miners can manipulate timestamps)
-        const currentBlock = Blockchain.block.numberU64;
-        if (currentBlock - updatedAtBlock > this._maxStaleness.value) {
+        // Check for stale price (block-based)
+        const currentBlock: u64 = Blockchain.block.number;
+        if (currentBlock - blockNumber > this._maxStaleness.value) {
             throw new Revert('Price is stale');
         }
 
@@ -551,7 +553,7 @@ export class MultiOracle extends OP_NET {
 
         const writer = new BytesWriter(40);
         writer.writeU256(price);
-        writer.writeU64(updatedAtBlock);
+        writer.writeU64(timestamp);
         return writer;
     }
 
@@ -561,15 +563,15 @@ export class MultiOracle extends OP_NET {
     @method({ name: 'asset', type: ABIDataTypes.ADDRESS })
     @returns(
         { name: 'price', type: ABIDataTypes.UINT256 },
-        { name: 'blockNumber', type: ABIDataTypes.UINT64 },
+        { name: 'timestamp', type: ABIDataTypes.UINT64 },
     )
     public getLatestPrice(calldata: Calldata): BytesWriter {
         const asset = calldata.readAddress();
 
         const writer = new BytesWriter(40);
         writer.writeU256(this._prices.get(asset));
-        // AddressMemoryMap returns u256; convert to u64 for block number
-        writer.writeU64(this._blockNumbers.get(asset).toU64());
+        // AddressMemoryMap returns u256; convert to u64 for timestamp
+        writer.writeU64(this._timestamps.get(asset).toU64());
         return writer;
     }
 
@@ -648,13 +650,13 @@ export class MultiOracle extends OP_NET {
 
     private setOracleBlock(key: u256, blockNumber: u64): void {
         const keyBytes = key.toUint8Array(true).subarray(2, 32);  // Use 30 bytes
-        const pointerHash = encodePointer(this.oracleBlockNumbersPointer, keyBytes);
+        const pointerHash = encodePointer(this.oracleTimestampsPointer, keyBytes);
         Blockchain.setStorageAt(pointerHash, u256.fromU64(blockNumber).toUint8Array(true));
     }
 
     private getOracleBlock(key: u256): u64 {
         const keyBytes = key.toUint8Array(true).subarray(2, 32);  // Use 30 bytes
-        const pointerHash = encodePointer(this.oracleBlockNumbersPointer, keyBytes);
+        const pointerHash = encodePointer(this.oracleTimestampsPointer, keyBytes);
         const stored = Blockchain.getStorageAt(pointerHash);
         return u256.fromBytes(stored, true).toU64();
     }
@@ -718,12 +720,11 @@ Oracle 3 -> Price: 100.4
 ### Staleness Protection
 
 ```typescript
-// Check for stale price using block height (not timestamp - miners can manipulate timestamps)
-const currentBlock = Blockchain.block.numberU64;
-if (currentBlock - updatedAtBlock > this._maxStaleness.value) {
+// Check for stale price (block-based)
+const currentBlock: u64 = Blockchain.block.number;
+if (currentBlock - blockNumber > this._maxStaleness.value) {
     throw new Revert('Price is stale');
 }
-// Block time conversions: 6 blocks ≈ 1 hour, 144 blocks ≈ 1 day
 ```
 
 ### Block Number Storage
@@ -732,14 +733,14 @@ AddressMemoryMap stores and returns u256 values. Convert block numbers as needed
 
 ```typescript
 // AddressMemoryMap stores u256 values
-private _blockNumbers: AddressMemoryMap;
-this._blockNumbers = new AddressMemoryMap(this.blockNumbersPointer);
+private _timestamps: AddressMemoryMap;
+this._timestamps = new AddressMemoryMap(this.timestampsPointer);
 
 // Store block number as u256
-this._blockNumbers.set(asset, u256.fromU64(Blockchain.block.numberU64));
+this._timestamps.set(asset, u256.fromU64(Blockchain.block.number));
 
 // Retrieve block number and convert to u64
-const updatedAtBlock: u64 = this._blockNumbers.get(asset).toU64();
+const blockNumber: u64 = this._timestamps.get(asset).toU64();
 ```
 
 ## Usage
@@ -750,7 +751,7 @@ const updatedAtBlock: u64 = this._blockNumbers.get(asset).toU64();
 const writer = new BytesWriter(128);
 writer.writeU8(3);                              // minOracles
 writer.writeU256(u256.fromU64(500));            // maxDeviation (5%)
-writer.writeU64(6);                             // maxStaleness (6 blocks ≈ 1 hour)
+writer.writeU64(6);                              // maxStaleness (6 blocks, ~1 hour)
 writer.writeAddressArray([oracle1, oracle2, oracle3]);
 ```
 
@@ -775,7 +776,7 @@ writer.writeSelector(GET_PRICE_SELECTOR);
 writer.writeAddress(btcAsset);
 
 const result = contract.call(oracle, writer.getBuffer(), true);
-// Returns: price (u256), blockNumber (u64)
+// Returns: price (u256), timestamp (u64)
 ```
 
 ## Best Practices
@@ -789,20 +790,18 @@ const countU32 = u32(count);
 const writer = new BytesWriter(4 + 32 * i32(countU32));
 ```
 
-### 2. Use Block Height Instead of Timestamps
+### 2. Handle Block Numbers Properly
 
 ```typescript
-// IMPORTANT: Use block height, not medianTimestamp. Bitcoin miners can manipulate
-// timestamps within ~2 hours, making them unsafe for time-dependent logic.
-// Block height conversions: 1 block ≈ 10 min, 6 blocks ≈ 1 hour, 144 blocks ≈ 1 day
-private _maxStaleness: StoredU64;    // In blocks, not seconds
-private _blockNumbers: AddressMemoryMap;
+// AddressMemoryMap stores u256 values
+private _maxStaleness: StoredU64;
+private _timestamps: AddressMemoryMap;
 
 // Store block number as u256
-this._blockNumbers.set(asset, u256.fromU64(Blockchain.block.numberU64));
+this._timestamps.set(asset, u256.fromU64(Blockchain.block.number));
 
 // Retrieve and convert to u64
-const updatedAtBlock: u64 = this._blockNumbers.get(asset).toU64();
+const blockNumber: u64 = this._timestamps.get(asset).toU64();
 ```
 
 ### 3. Add Decorators for ABI Generation
@@ -811,7 +810,7 @@ const updatedAtBlock: u64 = this._blockNumbers.get(asset).toU64();
 @method({ name: 'asset', type: ABIDataTypes.ADDRESS })
 @returns(
     { name: 'price', type: ABIDataTypes.UINT256 },
-    { name: 'blockNumber', type: ABIDataTypes.UINT64 },
+    { name: 'timestamp', type: ABIDataTypes.UINT64 },
 )
 public getPrice(calldata: Calldata): BytesWriter { }
 ```
@@ -988,11 +987,11 @@ contract MultiOracle is Ownable {
 |--------|---------------------------|-------|
 | **Oracle Interface** | `AggregatorV3Interface` with rounds | Custom multi-oracle aggregation |
 | **Price Storage** | `mapping(address => PriceData)` | `AddressMemoryMap` |
-| **Time/Block Source** | `block.timestamp` | `Blockchain.block.numberU64` (block height; **not** `medianTimestamp` which miners can manipulate) |
+| **Timing Source** | `block.timestamp` | `Blockchain.block.number` (block height, NOT medianTimestamp) |
 | **Key Generation** | `keccak256(abi.encodePacked(...))` | `sha256(combined)` |
 | **Array Handling** | Dynamic arrays with `.push()/.pop()` | `StoredAddressArray` |
 | **Sorting** | In-memory array manipulation | Same pattern, u256 comparisons |
-| **Staleness Check** | `block.timestamp - data.timestamp` | `currentBlock - updatedAtBlock > maxStaleness` (block-based) |
+| **Staleness Check** | `block.timestamp - data.timestamp` | `currentBlock - blockNumber > maxStaleness` |
 | **Return Format** | Multiple return values | `BytesWriter` serialization |
 
 ### Chainlink vs OPNet Oracle Pattern
@@ -1029,23 +1028,22 @@ contract PriceConsumer {
 @method({ name: 'asset', type: ABIDataTypes.ADDRESS })
 @returns(
     { name: 'price', type: ABIDataTypes.UINT256 },
-    { name: 'blockNumber', type: ABIDataTypes.UINT64 },
+    { name: 'timestamp', type: ABIDataTypes.UINT64 },
 )
 public getPrice(calldata: Calldata): BytesWriter {
     const asset = calldata.readAddress();
     const price = this._prices.get(asset);
     // AddressMemoryMap returns u256; convert to u64 for block number
-    const updatedAtBlock: u64 = this._blockNumbers.get(asset).toU64();
+    const blockNumber: u64 = this._timestamps.get(asset).toU64();
 
-    // Use block height for staleness (miners can manipulate timestamps)
-    const currentBlock = Blockchain.block.numberU64;
-    if (currentBlock - updatedAtBlock > this._maxStaleness.value) {
+    const currentBlock: u64 = Blockchain.block.number;
+    if (currentBlock - blockNumber > this._maxStaleness.value) {
         throw new Revert('Price is stale');
     }
 
     const writer = new BytesWriter(40);
     writer.writeU256(price);
-    writer.writeU64(updatedAtBlock);
+    writer.writeU64(timestamp);
     return writer;
 }
 ```
@@ -1132,7 +1130,7 @@ private setOraclePrice(key: u256, price: u256): void {
 |---------|---------|
 | **Self-Contained Oracle** | No external dependencies like Chainlink feeds |
 | **Multi-Oracle Aggregation** | Built-in median calculation from multiple sources |
-| **Block Height Safety** | Uses `Blockchain.block.numberU64` for manipulation-resistant staleness checks (miners cannot forge block height) |
+| **Bitcoin Block Height** | Uses `block.number` for tamper-proof timing (NOT medianTimestamp) |
 | **Flexible Configuration** | Runtime-configurable min oracles, deviation, staleness |
 | **Native u256 Math** | First-class 256-bit integer support |
 | **Explicit Storage** | Direct control over storage layout with pointers |
@@ -1205,7 +1203,7 @@ public submitPrice(calldata: Calldata): BytesWriter {
 |----------|---------------------|
 | **Need Chainlink feeds** | Solidity with AggregatorV3Interface |
 | **Custom oracle network** | OPNet multi-oracle aggregation |
-| **Bitcoin-native DeFi** | OPNet with block-height-based staleness |
+| **Bitcoin-native DeFi** | OPNet with Bitcoin block height |
 | **Existing EVM infrastructure** | Solidity |
 | **New protocol on Bitcoin** | OPNet |
 

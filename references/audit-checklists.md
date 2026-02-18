@@ -22,14 +22,14 @@ Always engage professional auditors for contracts handling real value.
 
 | Order | File | Why Required |
 |-------|------|--------------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules that define secure code |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules that define secure code |
 | 2 | `guidelines/audit-guidelines.md` | **COMPLETE AUDIT GUIDE** - vulnerability patterns, checklists, detection methods |
 
 **Then read based on code type:**
 
 | Code Type | Additional Required Reading |
 |-----------|----------------------------|
-| Smart Contracts | `docs/contracts-btc-runtime-core-concepts-security.md`, `docs/contracts-btc-runtime-gas-optimization.md`, `docs/contracts-btc-runtime-api-reference-safe-math.md`, `docs/contracts-btc-runtime-types-bytes-writer-reader.md` |
+| Smart Contracts | `docs/btc-runtime/core-concepts/security.md`, `docs/btc-runtime/api-reference/safe-math.md`, `docs/btc-runtime/types/bytes-writer-reader.md`, `docs/btc-runtime/contracts/upgradeable.md` |
 | DEX/Swap Code | SKILL.md - CSV, NativeSwap, Slashing sections |
 | Frontend | `guidelines/frontend-guidelines.md` |
 | Backend | `guidelines/backend-guidelines.md` |
@@ -42,7 +42,7 @@ Always engage professional auditors for contracts handling real value.
 **BEFORE writing ANY audit findings, confirm:**
 
 - [ ] I have read `guidelines/audit-guidelines.md` completely
-- [ ] I have read `docs/core-typescript-law-CompleteLaw.md` completely
+- [ ] I have read `docs/typescript-law/CompleteLaw.md` completely
 - [ ] I have read ALL additional docs for this code type
 - [ ] I understand the Critical Runtime Vulnerability Patterns section
 - [ ] I understand serialization/deserialization consistency requirements
@@ -81,7 +81,8 @@ Always engage professional auditors for contracts handling real value.
 | **BigInt** | All satoshi/token amounts use `bigint`, not `number` |
 | **No Floats** | No floating point for financial calculations |
 | **Caching** | Provider/contract instances cached, not recreated |
-| **Input Validation** | Address validation, amount validation, bounds checking |
+| **Input Validation** | Address validation via `AddressVerificator`, amount validation, bounds checking |
+| **Address Handling** | Use `AddressVerificator.detectAddressType()` not manual prefix checks; handle P2MR |
 | **Error Handling** | Errors caught and handled, no silent failures |
 | **Provider Type** | Use JSONRpcProvider (WebSocketProvider is experimental) |
 

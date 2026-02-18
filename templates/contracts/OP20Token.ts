@@ -1,6 +1,5 @@
 import { u256 } from '@btc-vision/as-bignum/assembly';
 import {
-    ABIDataTypes,
     Address,
     AddressMap,
     Blockchain,
@@ -15,7 +14,7 @@ import {
  * OP20Token - A complete OP20 fungible token implementation
  *
  * Features:
- * - Standard OP20 interface (balanceOf, transfer, approve, transferFrom, etc.)
+ * - Standard OP20 interface (balanceOf, transfer, increaseAllowance, decreaseAllowance, transferFrom, etc.)
  * - Minting with access control (onlyDeployer)
  * - Batch airdrop functionality
  * - Max supply enforcement

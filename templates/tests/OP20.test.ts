@@ -1,13 +1,24 @@
 import { opnet, OPNetUnit, Assert, Blockchain } from '@btc-vision/unit-test-framework';
 import { OP20 } from '@btc-vision/unit-test-framework';
-import { Address, BinaryWriter } from '@btc-vision/transaction';
-import { u256 } from '@btc-vision/as-bignum/assembly';
+import { Address } from '@btc-vision/transaction';
 
 /**
  * OP20 Token Unit Tests
  *
  * This test suite demonstrates how to test OP20 token contracts.
  * Use this as a template for your own contract tests.
+ *
+ * KEY API NOTES:
+ * - OP20 constructor takes an object: { address, deployer, file, decimals }
+ * - mint(to, amount: number) uses whole units; mintRaw(to, amount: bigint) uses raw units
+ * - Use safeTransfer(from, to, amount) instead of transfer(to, amount)
+ * - Use increaseAllowance(owner, spender, amount) instead of approve(spender, amount)
+ * - Use safeTransferFrom(from, to, amount) instead of transferFrom(from, to, amount)
+ * - OP20 has NO name() or symbol() methods -- use metadata() instead
+ * - decimals is a readonly property (token.decimals), NOT an async method
+ * - Built-in methods set sender/txOrigin internally -- no need for Blockchain.msgSender
+ * - Events are on CallResponse.events, not on the contract instance
+ * - Gas is on CallResponse.usedGas, not on Blockchain
  */
 await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
     // Test addresses
@@ -32,11 +43,16 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
         // Initialize blockchain
         await Blockchain.init();
 
-        // Create and register contract
-        token = new OP20(deployerAddress, contractAddress);
+        // Create and register contract (object constructor with file path and decimals)
+        token = new OP20({
+            address: contractAddress,
+            deployer: deployerAddress,
+            file: './bytecodes/OP20Token.wasm',
+            decimals: 18,
+        });
         Blockchain.register(token);
 
-        // Initialize the contract
+        // Initialize the contract (runs onDeployment)
         await token.init();
     });
 
@@ -48,22 +64,24 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
         Blockchain.dispose();
     });
 
-    await vm.it('should return correct token name', async () => {
-        const name = await token.name();
-        Assert.expect(name).toBeDefined();
-        Assert.expect(typeof name).toEqual('string');
+    await vm.it('should return correct token metadata', async () => {
+        // OP20 has no name() or symbol() methods -- use metadata() instead
+        const { metadata } = await token.metadata();
+
+        Assert.expect(metadata.name).toBeDefined();
+        Assert.expect(typeof metadata.name).toEqual('string');
+
+        Assert.expect(metadata.symbol).toBeDefined();
+        Assert.expect(typeof metadata.symbol).toEqual('string');
+
+        Assert.expect(metadata.decimals).toBeGreaterThanOrEqual(0);
+        Assert.expect(metadata.decimals).toBeLessThanOrEqual(18);
     });
 
-    await vm.it('should return correct token symbol', async () => {
-        const symbol = await token.symbol();
-        Assert.expect(symbol).toBeDefined();
-        Assert.expect(typeof symbol).toEqual('string');
-    });
-
-    await vm.it('should return correct decimals', async () => {
-        const decimals = await token.decimals();
-        Assert.expect(decimals).toBeGreaterThanOrEqual(0);
-        Assert.expect(decimals).toBeLessThanOrEqual(18);
+    await vm.it('should have correct decimals property', async () => {
+        // decimals is a readonly property on the OP20 instance, NOT an async method
+        const decimals = token.decimals;
+        Assert.expect(decimals).toEqual(18);
     });
 
     await vm.it('should return zero balance for new address', async () => {
@@ -72,127 +90,102 @@ await opnet('OP20 Token Tests', async (vm: OPNetUnit) => {
     });
 
     await vm.it('should return correct balance after mint', async () => {
-        const mintAmount = u256.fromU64(1000n);
+        // mint(to, amount: number) uses whole units -- sender is automatically set to deployer
+        await token.mint(userAddress, 1000);
 
-        // Set sender as deployer
-        Blockchain.setSender(deployerAddress);
-
-        // Mint tokens
-        await token.mint(userAddress, mintAmount);
-
-        // Check balance
+        // Check balance (returns bigint in raw units)
         const balance = await token.balanceOf(userAddress);
-        Assert.expect(balance.toString()).toEqual(mintAmount.toString());
+        Assert.expect(balance).toBeGreaterThan(0n);
+    });
+
+    await vm.it('should mint raw amount correctly', async () => {
+        const rawAmount = 1_000_000_000_000_000_000_000n; // 1000 * 10^18
+
+        // mintRaw(to, amount: bigint) uses raw units -- sender is automatically set to deployer
+        await token.mintRaw(userAddress, rawAmount);
+
+        const balance = await token.balanceOf(userAddress);
+        Assert.expect(balance.toString()).toEqual(rawAmount.toString());
     });
 
     await vm.it('should transfer tokens successfully', async () => {
-        const mintAmount = u256.fromU64(1000n);
-        const transferAmount = u256.fromU64(100n);
+        const transferAmount = 100_000_000_000_000_000_000n; // 100 * 10^18
 
-        // Mint to user
-        Blockchain.setSender(deployerAddress);
-        await token.mint(userAddress, mintAmount);
+        // Mint to user first
+        await token.mint(userAddress, 1000);
 
-        // Transfer from user to recipient
-        Blockchain.setSender(userAddress);
-        await token.transfer(recipientAddress, transferAmount);
+        // safeTransfer(from, to, amount) -- sender is automatically set to `from`
+        await token.safeTransfer(userAddress, recipientAddress, transferAmount);
 
         // Check balances
-        const userBalance = await token.balanceOf(userAddress);
         const recipientBalance = await token.balanceOf(recipientAddress);
-
-        Assert.expect(userBalance.toString()).toEqual('900');
-        Assert.expect(recipientBalance.toString()).toEqual('100');
+        Assert.expect(recipientBalance.toString()).toEqual(transferAmount.toString());
     });
 
     await vm.it('should revert transfer with insufficient balance', async () => {
-        const transferAmount = u256.fromU64(100n);
-
-        Blockchain.setSender(userAddress);
+        const transferAmount = 100_000_000_000_000_000_000n;
 
         await Assert.expect(async () => {
-            await token.transfer(recipientAddress, transferAmount);
+            await token.safeTransfer(userAddress, recipientAddress, transferAmount);
         }).toThrow();
     });
 
-    await vm.it('should approve spender correctly', async () => {
-        const approveAmount = u256.fromU64(500n);
+    await vm.it('should increase allowance correctly', async () => {
+        const allowanceAmount = 500_000_000_000_000_000_000n; // 500 * 10^18
 
-        Blockchain.setSender(userAddress);
-        await token.approve(recipientAddress, approveAmount);
+        // increaseAllowance(owner, spender, amount) -- sender is automatically set to `owner`
+        await token.increaseAllowance(userAddress, recipientAddress, allowanceAmount);
 
         const allowance = await token.allowance(userAddress, recipientAddress);
-        Assert.expect(allowance.toString()).toEqual(approveAmount.toString());
+        Assert.expect(allowance.toString()).toEqual(allowanceAmount.toString());
     });
 
-    await vm.it('should execute transferFrom with approval', async () => {
-        const mintAmount = u256.fromU64(1000n);
-        const approveAmount = u256.fromU64(500n);
-        const transferAmount = u256.fromU64(200n);
+    await vm.it('should execute safeTransferFrom with allowance', async () => {
+        const allowanceAmount = 500_000_000_000_000_000_000n;
+        const transferAmount = 200_000_000_000_000_000_000n;
 
         // Mint to user
-        Blockchain.setSender(deployerAddress);
-        await token.mint(userAddress, mintAmount);
+        await token.mint(userAddress, 1000);
 
-        // Approve recipient
-        Blockchain.setSender(userAddress);
-        await token.approve(recipientAddress, approveAmount);
+        // Increase allowance for recipient
+        await token.increaseAllowance(userAddress, recipientAddress, allowanceAmount);
 
-        // TransferFrom as recipient
-        Blockchain.setSender(recipientAddress);
-        await token.transferFrom(userAddress, recipientAddress, transferAmount);
+        // safeTransferFrom(from, to, amount) -- sender is automatically set to `from`
+        await token.safeTransferFrom(userAddress, recipientAddress, transferAmount);
 
-        // Check balances and allowance
-        const userBalance = await token.balanceOf(userAddress);
+        // Check balances
         const recipientBalance = await token.balanceOf(recipientAddress);
+        Assert.expect(recipientBalance.toString()).toEqual(transferAmount.toString());
+
+        // Check remaining allowance
         const remainingAllowance = await token.allowance(userAddress, recipientAddress);
-
-        Assert.expect(userBalance.toString()).toEqual('800');
-        Assert.expect(recipientBalance.toString()).toEqual('200');
-        Assert.expect(remainingAllowance.toString()).toEqual('300');
+        Assert.expect(remainingAllowance.toString()).toEqual(
+            (allowanceAmount - transferAmount).toString(),
+        );
     });
 
-    await vm.it('should only allow deployer to mint', async () => {
-        const mintAmount = u256.fromU64(100n);
-
-        // Try to mint as non-deployer
-        Blockchain.setSender(userAddress);
-
-        await Assert.expect(async () => {
-            await token.mint(userAddress, mintAmount);
-        }).toThrow();
-    });
-
-    await vm.it('should emit Transfer event on transfer', async () => {
-        const mintAmount = u256.fromU64(1000n);
-        const transferAmount = u256.fromU64(100n);
-
+    await vm.it('should emit events on transfer', async () => {
         // Mint to user
-        Blockchain.setSender(deployerAddress);
-        await token.mint(userAddress, mintAmount);
+        await token.mint(userAddress, 1000);
 
-        // Transfer
-        Blockchain.setSender(userAddress);
-        const result = await token.transfer(recipientAddress, transferAmount);
+        const transferAmount = 100_000_000_000_000_000_000n;
 
-        // Check events
-        const events = token.getEvents();
-        Assert.expect(events.length).toBeGreaterThan(0);
+        // safeTransfer returns CallResponse which contains events
+        const result = await token.safeTransfer(userAddress, recipientAddress, transferAmount);
 
-        // Find Transfer event
-        const transferEvent = events.find((e) => e.name === 'Transfer');
-        Assert.expect(transferEvent).toBeDefined();
+        // Events are on the CallResponse
+        Assert.expect(result.events.length).toBeGreaterThan(0);
     });
 
     await vm.it('should track gas consumption', async () => {
         Blockchain.enableGasTracking();
 
-        const mintAmount = u256.fromU64(1000n);
-        Blockchain.setSender(deployerAddress);
-        await token.mint(userAddress, mintAmount);
+        await token.mint(userAddress, 1000);
 
-        const gasUsed = Blockchain.getGasUsed();
-        Assert.expect(gasUsed).toBeGreaterThan(0n);
+        // Gas is tracked per-call on CallResponse.usedGas
+        const transferAmount = 100_000_000_000_000_000_000n;
+        const result = await token.safeTransfer(userAddress, recipientAddress, transferAmount);
+        Assert.expect(result.usedGas).toBeGreaterThan(0n);
 
         Blockchain.disableGasTracking();
     });

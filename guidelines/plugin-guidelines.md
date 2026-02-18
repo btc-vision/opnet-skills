@@ -33,7 +33,7 @@ npx npm-check-updates -u && npm install
 
 **BEFORE WRITING ANY PLUGIN CODE, YOU MUST READ AND FOLLOW:**
 
-`docs/core-typescript-law-CompleteLaw.md`
+`docs/typescript-law/CompleteLaw.md`
 
 **The TypeScript Law is NON-NEGOTIABLE.** Every line of code must comply. Violations lead to exploitable, broken code.
 
@@ -88,12 +88,12 @@ npx npm-check-updates -u && npm install
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules, forbidden constructs |
 | 2 | `guidelines/setup-guidelines.md` | Package versions |
 | 3 | `guidelines/plugin-guidelines.md` | This file - summary of patterns |
-| 4 | `docs/core-OIP-OIP-0003.md` | **PLUGIN SPECIFICATION** - Full spec |
-| 5 | `docs/plugins-plugin-sdk-README.md` | SDK reference |
-| 6 | `docs/plugins-opnet-node-README.md` | Node integration |
+| 4 | `docs/OIP/OIP/OIP-0003.md` | **PLUGIN SPECIFICATION** - Full spec |
+| 5 | `docs/plugin-sdk/README.md` | SDK reference |
+| 6 | `docs/opnet-node/README.md` | Node integration |
 
 **CRITICAL:** You MUST implement `onReorg()` to handle chain reorganizations or your data will be inconsistent.
 
@@ -106,7 +106,9 @@ npx npm-check-updates -u && npm install
 **NEVER GUESS PACKAGE VERSIONS. ALWAYS run:**
 
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+rm -rf node_modules package-lock.json
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc --prefer-online
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
 ```
 
 ```json
@@ -123,8 +125,8 @@ npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/
         "bytenode": "latest",
         "gulp": "latest",
         "@types/node": "latest",
-        "eslint": "^9.39.2",
-        "@eslint/js": "^9.39.2"
+        "eslint": "^10.0.0",
+        "@eslint/js": "^10.0.1"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"

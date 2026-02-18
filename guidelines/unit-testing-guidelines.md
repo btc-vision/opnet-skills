@@ -50,7 +50,7 @@ AssemblyScript smart contracts are vulnerable to subtle issues that standard tes
 
 **BEFORE WRITING ANY TEST CODE, YOU MUST READ AND FOLLOW:**
 
-`docs/core-typescript-law-CompleteLaw.md`
+`docs/typescript-law/CompleteLaw.md`
 
 **The TypeScript Law is NON-NEGOTIABLE.** Every line of code must comply. Violations lead to exploitable, broken code.
 
@@ -76,13 +76,17 @@ AssemblyScript smart contracts are vulnerable to subtle issues that standard tes
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules |
 | 2 | `guidelines/setup-guidelines.md` | Package versions |
 | 3 | `guidelines/unit-testing-guidelines.md` | This file - summary of patterns |
-| 4 | `docs/testing-unit-test-framework-README.md` | Framework overview |
-| 5 | `docs/testing-opnet-unit-test-README.md` | Test setup |
-| 6 | `docs/testing-opnet-unit-test-docs-Blockchain.md` | Blockchain mocking |
-| 7 | `docs/testing-opnet-unit-test-docs-ContractRuntime.md` | Contract runtime |
+| 4 | `docs/unit-test-framework/README.md` | Framework overview |
+| 5 | `docs/unit-test-framework/getting-started/installation.md` | Getting started guide |
+| 6 | `docs/unit-test-framework/writing-tests/basic-tests.md` | Writing tests |
+| 7 | `docs/unit-test-framework/api-reference/assertions.md` | API reference |
+| 8 | `docs/unit-test-framework/advanced/gas-profiling.md` | Advanced patterns |
+| 9 | `docs/unit-test-framework/examples/block-replay.md` | Example tests |
+
+The `docs/unit-test-framework/` directory contains **24 documentation files** covering all aspects of the framework. The files listed above are the essential starting points. Explore the full directory for specialized topics.
 
 **CRITICAL:** Unit tests are TypeScript (NOT AssemblyScript). They have a SEPARATE package.json.
 
@@ -98,9 +102,9 @@ AssemblyScript smart contracts are vulnerable to subtle issues that standard tes
 | **Runtime** | WASM | Node.js |
 | **Package manager** | Separate package.json | Separate package.json |
 | **Compiler** | asc (AssemblyScript) | tsc / ts-node |
-| **ESLint config** | eslint-contract.json | eslint-generic.json |
+| **ESLint config** | eslint-contract.js | eslint-generic.js |
 
-**Unit tests do NOT use as-pect.** They use `@btc-vision/unit-test-framework`.
+**Unit tests do NOT use as-pect.** They use `@btc-vision/unit-test-framework`. See `docs/unit-test-framework/` for the full documentation (24 files covering getting-started, writing-tests, api-reference, advanced patterns, and examples).
 
 ---
 
@@ -130,7 +134,9 @@ Tests can share the contract's package.json or have their own. Either way, inclu
 
 **ALWAYS run after creating package.json:**
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+rm -rf node_modules package-lock.json && npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc @btc-vision/op-vm@rc @btc-vision/unit-test-framework@beta --prefer-online
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
 ```
 
 ```json
@@ -144,8 +150,8 @@ npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/
         "typescript": "latest",
         "ts-node": "latest",
         "@types/node": "latest",
-        "eslint": "^9.39.2",
-        "@eslint/js": "^9.39.2"
+        "eslint": "^10.0.0",
+        "@eslint/js": "^10.0.1"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"
@@ -183,7 +189,7 @@ npx ts-node --esm tests/MyContract.test.ts
 }
 ```
 
-### ESLint (use eslint-generic.json)
+### ESLint (use eslint-generic.js)
 
 Tests are TypeScript, so use the generic TypeScript ESLint config, NOT the AssemblyScript contract config.
 
@@ -230,7 +236,7 @@ await opnet('MyContract Tests', async (vm: OPNetUnit) => {
 
     // Test cases
     await vm.it('should do something', async () => {
-        Blockchain.setSender(userAddress);
+        Blockchain.msgSender = userAddress;
         const result = await contract.someMethod();
         Assert.expect(result).toEqual(expectedValue);
     });
@@ -274,7 +280,7 @@ for (let i = 0; i < 1025; i++) {
 }
 
 // Set sender for next call
-Blockchain.setSender(userAddress);
+Blockchain.msgSender = userAddress;
 
 // Generate random address for testing
 const randomUser = Blockchain.generateRandomAddress();
@@ -291,9 +297,10 @@ import { ContractRuntime } from '@btc-vision/unit-test-framework';
 import { Address, BinaryWriter, BinaryReader } from '@btc-vision/transaction';
 
 export class MyContractRuntime extends ContractRuntime {
-    // Define selectors
+    // Define selectors using helper method
     private readonly myMethodSelector: number = this.getSelector('myMethod(address,uint256)');
     private readonly balanceOfSelector: number = this.getSelector('balanceOf(address)');
+    private readonly getStatusSelector: number = this.getSelector('getStatus()');
 
     public constructor(deployer: Address, address: Address, gasLimit: bigint = 150_000_000_000n) {
         super({
@@ -301,6 +308,14 @@ export class MyContractRuntime extends ContractRuntime {
             deployer: deployer,
             gasLimit,
         });
+    }
+
+    /**
+     * Encodes a method signature into a numeric selector.
+     * ContractRuntime does NOT provide this method -- you must define it yourself.
+     */
+    private getSelector(signature: string): number {
+        return Number(`0x${this.abiCoder.encodeSelector(signature)}`);
     }
 
     /**
@@ -360,7 +375,7 @@ export class MyContractRuntime extends ContractRuntime {
 
 ### Selector Format
 
-Use `this.getSelector()` with the method signature:
+Define a `getSelector` helper in your ContractRuntime wrapper (see above), then use it with the contract's ABI method signature:
 
 ```typescript
 // Method with no params
@@ -372,16 +387,17 @@ this.getSelector('balanceOf(address)');
 // Method with multiple params
 this.getSelector('transfer(address,uint256)');
 
-// Standard OP20 methods
-this.getSelector('name()');
-this.getSelector('symbol()');
-this.getSelector('decimals()');
-this.getSelector('totalSupply()');
+// Standard OP20 ABI selectors (used in raw ContractRuntime wrappers)
+// NOTE: The high-level OP20 test class uses different method names
+// (e.g., safeTransfer, increaseAllowance). These are the underlying ABI names.
 this.getSelector('balanceOf(address)');
 this.getSelector('transfer(address,uint256)');
-this.getSelector('approve(address,uint256)');
+this.getSelector('increaseAllowance(address,uint256)');
+this.getSelector('decreaseAllowance(address,uint256)');
 this.getSelector('allowance(address,address)');
 this.getSelector('transferFrom(address,address,uint256)');
+this.getSelector('totalSupply()');
+this.getSelector('metadata()');
 ```
 
 ---
@@ -400,7 +416,7 @@ Blockchain.clearContracts();
 Blockchain.register(contractRuntime);
 
 // Set transaction sender
-Blockchain.setSender(address);
+Blockchain.msgSender = address;
 
 // Generate addresses
 const addr = Blockchain.generateRandomAddress();
@@ -409,8 +425,8 @@ const addr = Blockchain.generateRandomAddress();
 Blockchain.mineBlock();
 
 // Access block info (inside contract)
-// Blockchain.block.number     — use for ALL time-dependent logic
-// Blockchain.block.numberU64  — same as above, u64 type
+// Blockchain.block.number
+// Blockchain.block.timestamp
 ```
 
 ### Testing Multiple Users
@@ -421,11 +437,11 @@ await vm.it('should handle multiple users', async () => {
     const user2 = Blockchain.generateRandomAddress();
 
     // User 1 action
-    Blockchain.setSender(user1);
+    Blockchain.msgSender = user1;
     await contract.mint();
 
     // User 2 action
-    Blockchain.setSender(user2);
+    Blockchain.msgSender = user2;
     await contract.mint();
 
     // Verify both
@@ -446,7 +462,7 @@ await vm.it('should fail after deadline', async () => {
         Blockchain.mineBlock();
     }
 
-    Blockchain.setSender(userAddress);
+    Blockchain.msgSender = userAddress;
 
     // Should throw because deadline passed
     await Assert.expect(async () => {
@@ -480,7 +496,7 @@ await vm.it('should serialize/deserialize arrays correctly', async () => {
 
     for (const original of testCases) {
         // Write array via contract
-        Blockchain.setSender(owner);
+        Blockchain.msgSender = owner;
         await contract.storeArray(original);
 
         // Read back and verify exact match
@@ -549,7 +565,7 @@ await vm.it('should not confuse signed and unsigned', async () => {
     Assert.expect(asI8.toString()).toEqual('-1');
 
     // Verify it's NOT 255 (what you'd get if treated as u8)
-    Assert.expect(asI8.toString()).not.toEqual('255');
+    // If it equals -1, it cannot be 255 (unsigned interpretation)
 });
 ```
 
@@ -566,7 +582,7 @@ await vm.it('should revert on overflow', async () => {
     const maxU256 = 2n ** 256n - 1n;
 
     // Set balance to max
-    Blockchain.setSender(owner);
+    Blockchain.msgSender = owner;
     await contract.setBalance(user, maxU256);
 
     // Adding 1 should revert
@@ -577,7 +593,7 @@ await vm.it('should revert on overflow', async () => {
 
 await vm.it('should revert on underflow', async () => {
     // Set balance to 0
-    Blockchain.setSender(owner);
+    Blockchain.msgSender = owner;
     await contract.setBalance(user, 0n);
 
     // Subtracting 1 should revert
@@ -645,7 +661,7 @@ await vm.it('should update storage even when cache is uninitialized', async () =
     // Setting to 0 should still work if storage has different value
 
     // First, set a non-zero value
-    Blockchain.setSender(owner);
+    Blockchain.msgSender = owner;
     await contract.setValue(100n);
 
     // Create a NEW runtime instance (simulating fresh cache)
@@ -698,7 +714,7 @@ await vm.it('should return false for has() after delete', async () => {
     const key = Blockchain.generateRandomAddress();
 
     // Add item
-    Blockchain.setSender(owner);
+    Blockchain.msgSender = owner;
     await contract.mapSet(key, 100n);
 
     // Verify exists
@@ -845,7 +861,7 @@ await vm.it('should handle modulo edge cases', async () => {
 await vm.it('should reject non-owner for admin functions', async () => {
     const attacker = Blockchain.generateRandomAddress();
 
-    Blockchain.setSender(attacker);
+    Blockchain.msgSender = attacker;
 
     await Assert.expect(async () => {
         await contract.adminMint(attacker, 1000000n);
@@ -861,7 +877,7 @@ await vm.it('should reject non-owner for admin functions', async () => {
 });
 
 await vm.it('should allow owner for admin functions', async () => {
-    Blockchain.setSender(owner);
+    Blockchain.msgSender = owner;
 
     // These should NOT throw
     await contract.adminMint(user, 1000n);
@@ -881,11 +897,11 @@ await vm.it('should allow owner for admin functions', async () => {
 ```typescript
 await vm.it('should update balance before transfer', async () => {
     // Setup: user has 1000 tokens
-    Blockchain.setSender(owner);
+    Blockchain.msgSender = owner;
     await contract.mint(user, 1000n);
 
     // Transfer 500
-    Blockchain.setSender(user);
+    Blockchain.msgSender = user;
     await contract.transfer(recipient, 500n);
 
     // User balance should be 500 (updated BEFORE any callbacks)
@@ -895,7 +911,7 @@ await vm.it('should update balance before transfer', async () => {
 
 await vm.it('should prevent double-spend via reentrancy', async () => {
     // If contract has callbacks, test that balance is deducted first
-    Blockchain.setSender(user);
+    Blockchain.msgSender = user;
 
     // First transfer uses all balance
     await contract.transfer(recipient, 1000n);
@@ -1086,7 +1102,7 @@ await contract.mint();
 
 **CORRECT:**
 ```typescript
-Blockchain.setSender(userAddress);
+Blockchain.msgSender = userAddress;
 await contract.mint();
 ```
 
@@ -1101,7 +1117,9 @@ await contract.mint();
 
 **CORRECT -- always run the install command:**
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+rm -rf node_modules package-lock.json && npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc @btc-vision/op-vm@rc @btc-vision/unit-test-framework@beta --prefer-online
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
 ```
 
 ### 7. Missing --esm Flag
@@ -1135,6 +1153,10 @@ class MyTokenRuntime extends ContractRuntime {
 
     public constructor(deployer: Address, address: Address) {
         super({ address, deployer, gasLimit: 150_000_000_000n });
+    }
+
+    private getSelector(signature: string): number {
+        return Number(`0x${this.abiCoder.encodeSelector(signature)}`);
     }
 
     public async freeMint(): Promise<boolean> {
@@ -1185,13 +1207,13 @@ await opnet('MyToken Tests', async (vm: OPNetUnit) => {
     });
 
     await vm.it('should mint tokens', async () => {
-        Blockchain.setSender(user);
+        Blockchain.msgSender = user;
         const result = await token.freeMint();
         Assert.expect(result).toEqual(true);
     });
 
     await vm.it('should update balance after mint', async () => {
-        Blockchain.setSender(user);
+        Blockchain.msgSender = user;
         await token.freeMint();
 
         const balance = await token.balanceOf(user);
@@ -1199,7 +1221,7 @@ await opnet('MyToken Tests', async (vm: OPNetUnit) => {
     });
 
     await vm.it('should fail on 6th mint', async () => {
-        Blockchain.setSender(user);
+        Blockchain.msgSender = user;
 
         // Mint 5 times successfully
         for (let i = 0; i < 5; i++) {

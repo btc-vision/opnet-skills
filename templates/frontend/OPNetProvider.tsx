@@ -62,7 +62,7 @@ export function OPNetProvider({ children, defaultNetwork = 'mainnet' }: OPNetPro
         const initProvider = async () => {
             setError(null);
             try {
-                const rpcProvider = new JSONRpcProvider(config.url, config.network);
+                const rpcProvider = new JSONRpcProvider({ url: config.url, network: config.network });
                 providerRef.current = rpcProvider;
                 setProvider(rpcProvider);
 

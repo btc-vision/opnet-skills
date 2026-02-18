@@ -36,7 +36,7 @@ npx npm-check-updates -u && npm install
 
 **BEFORE WRITING ANY BACKEND CODE, YOU MUST READ AND FOLLOW:**
 
-`docs/core-typescript-law-CompleteLaw.md`
+`docs/typescript-law/CompleteLaw.md`
 
 **The TypeScript Law is NON-NEGOTIABLE.** Every line of code must comply. Violations lead to exploitable, broken code.
 
@@ -85,20 +85,51 @@ npx npm-check-updates -u && npm install
 
 ---
 
+## CRITICAL: Buffer is REMOVED -- Use Uint8Array
+
+**`Buffer` is completely removed from the OPNet stack.** All backend code must use `Uint8Array` for binary data. For hex conversions, use `BufferHelper` from `@btc-vision/transaction`:
+
+```typescript
+import { BufferHelper } from '@btc-vision/transaction';
+
+const bytes: Uint8Array = BufferHelper.fromHex('deadbeef');
+const hex: string = BufferHelper.toHex(bytes);
+```
+
+**Do NOT use `Buffer.from()` or any Node.js Buffer API with OPNet libraries.** While Node.js Buffer is still available in the runtime, OPNet libraries exclusively use `Uint8Array`.
+
+---
+
+## MANDATORY Architecture Rules
+
+### MANDATORY: Use `@btc-vision/hyper-express` + `@btc-vision/uwebsockets.js` with Threads
+
+All OPNet backends MUST use `@btc-vision/hyper-express` for HTTP and `@btc-vision/uwebsockets.js` for WebSockets. Worker threads are MANDATORY for any CPU-intensive operations. See the [Threading](#threading-mandatory) section.
+
+### MANDATORY: Use MongoDB When Database is Needed
+
+When your backend requires persistent storage, you MUST use **MongoDB**. Other databases (PostgreSQL, SQLite, Redis as primary store) are not supported by the OPNet plugin ecosystem and tooling.
+
+### FORBIDDEN: Single-Threaded API Implementations
+
+**Single-threaded API implementations are FORBIDDEN.** Every backend must use worker threads for CPU-intensive operations (contract simulation, signature verification, data processing). The main thread handles HTTP/WebSocket I/O only.
+
+---
+
 ## Mandatory Reading Order
 
 **This guideline is a SUMMARY. You MUST read the following docs files IN ORDER before writing backend code:**
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules, forbidden constructs |
 | 2 | `guidelines/setup-guidelines.md` | Package versions |
 | 3 | `guidelines/backend-guidelines.md` | This file - summary of patterns |
-| 4 | `docs/core-opnet-backend-api.md` | **REQUIRED FRAMEWORKS** - hyper-express, uWebSockets.js |
-| 5 | `docs/core-opnet-providers-json-rpc-provider.md` | Provider setup |
-| 6 | `docs/core-opnet-providers-threaded-http.md` | Threading (MANDATORY) |
-| 7 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
-| 8 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
+| 4 | `docs/opnet/providers/threaded-http.md` | **REQUIRED FRAMEWORKS** - hyper-express, uWebSockets.js, threading |
+| 5 | `docs/opnet/providers/json-rpc-provider.md` | Provider setup |
+| 6 | `docs/opnet/providers/threaded-http.md` | Threading (MANDATORY) |
+| 7 | `docs/opnet/providers/internal-caching.md` | Caching (MANDATORY) |
+| 8 | `docs/opnet/contracts/instantiating-contracts.md` | Contract instances |
 
 **FORBIDDEN FRAMEWORKS:** Express, Fastify, Koa, Hapi, Socket.io - use hyper-express and uWebSockets.js only.
 
@@ -135,7 +166,9 @@ npx npm-check-updates -u && npm install
 **NEVER GUESS PACKAGE VERSIONS. ALWAYS run:**
 
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+rm -rf node_modules package-lock.json
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc --prefer-online
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
 ```
 
 ```json
@@ -151,8 +184,8 @@ npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/
     "devDependencies": {
         "typescript": "latest",
         "@types/node": "latest",
-        "eslint": "^9.39.2",
-        "@eslint/js": "^9.39.2"
+        "eslint": "^10.0.0",
+        "@eslint/js": "^10.0.1"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"
@@ -178,7 +211,7 @@ let provider: JSONRpcProvider | null = null;
 
 function getProvider(): JSONRpcProvider {
     if (!provider) {
-        provider = new JSONRpcProvider(url, network);
+        provider = new JSONRpcProvider({ url, network });
     }
     return provider;
 }
@@ -193,7 +226,7 @@ class OPNetService {
     private readonly contractCache: Map<string, IOP20Contract> = new Map();
 
     public constructor(rpcUrl: string, network: Networks) {
-        this.provider = new JSONRpcProvider(rpcUrl, network);
+        this.provider = new JSONRpcProvider({ url: rpcUrl, network });
     }
 
     public async getBalance(address: string): Promise<bigint> {
@@ -305,10 +338,10 @@ class OPNetAPI {
         this.app = new HyperExpress.Server({
             max_body_length: 1024 * 1024, // 1MB
         });
-        this.provider = new JSONRpcProvider(
-            process.env.OPNET_RPC_URL ?? 'https://api.opnet.org',
-            networks.bitcoin
-        );
+        this.provider = new JSONRpcProvider({
+            url: process.env.OPNET_RPC_URL ?? 'https://api.opnet.org',
+            network: networks.bitcoin,
+        });
         this.setupMiddleware();
         this.setupRoutes();
     }
@@ -483,10 +516,10 @@ class OPNetWebSocket {
     private currentBlock: number = 0;
 
     public constructor() {
-        this.provider = new JSONRpcProvider(
-            process.env.OPNET_RPC_URL ?? 'https://api.opnet.org',
-            networks.bitcoin
-        );
+        this.provider = new JSONRpcProvider({
+            url: process.env.OPNET_RPC_URL ?? 'https://api.opnet.org',
+            network: networks.bitcoin,
+        });
 
         this.app = uWS
             .App()
@@ -515,7 +548,7 @@ class OPNetWebSocket {
         message: ArrayBuffer
     ): void {
         const data: SubscriptionMessage = JSON.parse(
-            Buffer.from(message).toString()
+            new TextDecoder().decode(message)
         );
 
         switch (data.action) {
@@ -979,7 +1012,7 @@ class ProviderManager {
     public getProvider(network: Networks): JSONRpcProvider {
         if (!this.providers.has(network)) {
             const url = this.getRpcUrl(network);
-            this.providers.set(network, new JSONRpcProvider(url, network));
+            this.providers.set(network, new JSONRpcProvider({ url, network }));
         }
         return this.providers.get(network)!;
     }
@@ -1321,7 +1354,7 @@ app.post('/simulate', async (req, res) => {
 **WRONG:**
 ```typescript
 app.get('/balance/:address', async (req, res) => {
-    const provider = new JSONRpcProvider(url, network); // New instance per request!
+    const provider = new JSONRpcProvider({ url, network }); // New instance per request!
 });
 ```
 

@@ -1,4 +1,3 @@
-import { PluginBase, IPluginContext } from '@btc-vision/plugin-sdk';
 import { OP20Indexer } from './OP20Indexer';
 
 /**

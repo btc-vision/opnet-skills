@@ -1,6 +1,5 @@
 import { u256 } from '@btc-vision/as-bignum/assembly';
 import {
-    ABIDataTypes,
     Address,
     Blockchain,
     BytesWriter,
@@ -96,8 +95,7 @@ export class OP721NFT extends OP721 {
     @returns({ name: 'enabled', type: ABIDataTypes.BOOL })
     public isMintEnabled(_: Calldata): BytesWriter {
         const response: BytesWriter = new BytesWriter(1);
-        const enabled: boolean = this.mintEnabled.value ?? false;
-        response.writeBoolean(enabled);
+        response.writeBoolean(<boolean>this.mintEnabled.value);
         return response;
     }
 

@@ -46,17 +46,17 @@ This document covers how to handle questions about OPNet architecture, concepts,
 
 | Example Question | Read These First |
 |------------------|------------------|
-| "How does OPNet work?" | `docs/core-opnet-getting-started-overview.md`, SKILL.md "What is OPNet" section |
-| "Can OPNet survive 51% attacks?" | SKILL.md "Security Model" section, `docs/core-opnet-epochs-overview.md` |
-| "How does airdrop work on OPNet?" | `docs/core-opnet-address-systems-airdrop-pattern.md`, SKILL.md "The Two Address Systems" section |
+| "How does OPNet work?" | `docs/opnet/getting-started/overview.md`, SKILL.md "What is OPNet" section |
+| "Can OPNet survive 51% attacks?" | SKILL.md "Security Model" section, `docs/opnet/epochs/overview.md` |
+| "How does airdrop work on OPNet?" | `how-to/airdrops.md`, SKILL.md "The Two Address Systems" section |
 | "Why can't I just loop and transfer tokens?" | SKILL.md "WHY YOU CANNOT JUST LOOP AND TRANSFER" section |
 | "What's the difference between OPNet and Runes/Ordinals?" | SKILL.md "Why OPNet Requires Consensus" section |
-| "How do epochs work?" | `docs/core-opnet-epochs-overview.md`, `docs/core-OIP-OIP-0004.md` |
+| "How do epochs work?" | `docs/opnet/epochs/overview.md`, `docs/OIP/OIP/OIP-0004.md` |
 | "What is transaction pinning?" | SKILL.md "CSV: The Critical Anti-Pinning Mechanism" section |
 | "Why do I need CSV timelocks?" | SKILL.md "CSV: The Critical Anti-Pinning Mechanism" section |
-| "How do Bitcoin addresses relate to OPNet addresses?" | `docs/core-opnet-address-systems-airdrop-pattern.md` |
-| "What is ML-DSA / quantum resistance?" | `docs/core-transaction-quantum-support-README.md` |
-| "How do I handle chain reorgs?" | `docs/core-opnet-blocks-reorg-detection.md` |
+| "How do Bitcoin addresses relate to OPNet addresses?" | `how-to/airdrops.md` |
+| "What is ML-DSA / quantum resistance?" | `docs/transaction/quantum-support/README.md` |
+| "How do I handle chain reorgs?" | `docs/opnet/blocks/reorg-detection.md` |
 | "Why can't contracts hold BTC?" | SKILL.md "Key Principles" section, "NativeSwap" section |
 | "What is verify-don't-custody?" | SKILL.md "Key Principles" section |
 | "How does NativeSwap work?" | SKILL.md "NativeSwap: How to Build a Real DEX on Bitcoin" section |
@@ -69,7 +69,7 @@ This document covers how to handle questions about OPNet architecture, concepts,
 | "How is OPNet different from Ethereum?" | `guidelines/ethereum-migration-guidelines.md` - Section 1 (Platform Differences) |
 | "How do I port my Solidity contract?" | `guidelines/ethereum-migration-guidelines.md` - entire guide (it's conceptual, not a transpiler) |
 | "What's the equivalent of ecrecover?" | `guidelines/ethereum-migration-guidelines.md` - Section 3 (Quantum-Safe Migration) |
-| "How do I do an airdrop like on Ethereum?" | `guidelines/ethereum-migration-guidelines.md` - Section 5, plus `docs/core-opnet-address-systems-airdrop-pattern.md` |
+| "How do I do an airdrop like on Ethereum?" | `guidelines/ethereum-migration-guidelines.md` - Section 5, plus `how-to/airdrops.md` |
 | "What's the OPNet equivalent of ERC-20?" | `guidelines/ethereum-migration-guidelines.md` - Section 4 (Token Standards) |
 | "How do I connect a wallet like MetaMask?" | `guidelines/ethereum-migration-guidelines.md` - Section 6 (Frontend / Wallet) |
 | "Why can't I just send ETH/BTC to a contract?" | `guidelines/ethereum-migration-guidelines.md` - Section 8 (Verify-Don't-Custody) |
@@ -154,20 +154,20 @@ const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
 
 | Topic | Files to Read |
 |-------|---------------|
-| How OPNet works | `docs/core-opnet-getting-started-overview.md` |
+| How OPNet works | `docs/opnet/getting-started/overview.md` |
 | What is OPNet | SKILL.md - "What is OPNet" section |
 | Security model | SKILL.md - "Security Model" section |
 | Consensus vs indexing | SKILL.md - "Why OPNet Requires Consensus" section |
-| Epochs and mining | `docs/core-opnet-epochs-overview.md`, `docs/core-OIP-OIP-0004.md` |
-| Epoch operations | `docs/core-opnet-epochs-epoch-operations.md` |
-| Mining template | `docs/core-opnet-epochs-mining-template.md` |
-| Submitting epochs | `docs/core-opnet-epochs-submitting-epochs.md` |
-| Transaction flow | `docs/core-opnet-transactions-broadcasting.md` |
-| Transaction receipts | `docs/core-opnet-transactions-transaction-receipts.md` |
-| Block processing | `docs/core-opnet-blocks-block-operations.md` |
-| Block witnesses | `docs/core-opnet-blocks-block-witnesses.md` |
-| Gas parameters | `docs/core-opnet-blocks-gas-parameters.md` |
-| Reorg handling | `docs/core-opnet-blocks-reorg-detection.md` |
+| Epochs and mining | `docs/opnet/epochs/overview.md`, `docs/OIP/OIP/OIP-0004.md` |
+| Epoch operations | `docs/opnet/epochs/epoch-operations.md` |
+| Mining template | `docs/opnet/epochs/mining-template.md` |
+| Submitting epochs | `docs/opnet/epochs/submitting-epochs.md` |
+| Transaction flow | `docs/opnet/transactions/broadcasting.md` |
+| Transaction receipts | `docs/opnet/transactions/transaction-receipts.md` |
+| Block processing | `docs/opnet/blocks/block-operations.md` |
+| Block witnesses | `docs/opnet/blocks/block-witnesses.md` |
+| Gas parameters | `docs/opnet/blocks/gas-parameters.md` |
+| Reorg handling | `docs/opnet/blocks/reorg-detection.md` |
 
 ---
 
@@ -175,16 +175,16 @@ const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
 
 | Topic | Files to Read |
 |-------|---------------|
-| Two address systems (Bitcoin vs OPNet) | `docs/core-opnet-address-systems-airdrop-pattern.md` |
-| Why airdrops need claims | `docs/core-opnet-address-systems-airdrop-pattern.md` |
+| Two address systems (Bitcoin vs OPNet) | `how-to/airdrops.md` |
+| Why airdrops need claims | `how-to/airdrops.md` |
 | Airdrop contract pattern | SKILL.md - "The Two Address Systems" section |
-| ML-DSA quantum signatures | `docs/core-transaction-quantum-support-README.md` |
-| Quantum introduction | `docs/core-transaction-quantum-support-01-introduction.md` |
-| Quantum mnemonic/wallet | `docs/core-transaction-quantum-support-02-mnemonic-and-wallet.md` |
-| Quantum address generation | `docs/core-transaction-quantum-support-03-address-generation.md` |
-| Quantum message signing | `docs/core-transaction-quantum-support-04-message-signing.md` |
-| Quantum address verification | `docs/core-transaction-quantum-support-05-address-verification.md` |
-| Public key operations | `docs/core-opnet-public-keys-public-key-operations.md` |
+| ML-DSA quantum signatures | `docs/transaction/quantum-support/README.md` |
+| Quantum introduction | `docs/transaction/quantum-support/01-introduction.md` |
+| Quantum mnemonic/wallet | `docs/transaction/quantum-support/02-mnemonic-and-wallet.md` |
+| Quantum address generation | `docs/transaction/quantum-support/03-address-generation.md` |
+| Quantum message signing | `docs/transaction/quantum-support/04-message-signing.md` |
+| Quantum address verification | `docs/transaction/quantum-support/05-address-verification.md` |
+| Public key operations | `docs/opnet/public-keys/public-key-operations.md` |
 
 ---
 
@@ -192,15 +192,15 @@ const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
 
 | Topic | Files to Read |
 |-------|---------------|
-| OP20 standard (fungible tokens) | `docs/core-OIP-OIP-0020.md` |
-| OP20 ABI | `docs/core-opnet-abi-reference-op20-abi.md` |
-| OP20 examples | `docs/core-opnet-examples-op20-examples.md` |
-| OP721 standard (NFTs) | `docs/core-OIP-OIP-0721.md` |
-| OP721 ABI | `docs/core-opnet-abi-reference-op721-abi.md` |
-| OP721 examples | `docs/core-opnet-examples-op721-examples.md` |
-| OP20S (signatures) | `docs/core-opnet-abi-reference-op20s-abi.md` |
-| Custom ABIs | `docs/core-opnet-abi-reference-custom-abis.md` |
-| ABI data types | `docs/core-opnet-abi-reference-data-types.md` |
+| OP20 standard (fungible tokens) | `docs/OIP/standard/OIP-0020.md` |
+| OP20 ABI | `docs/opnet/abi-reference/op20-abi.md` |
+| OP20 examples | `docs/opnet/examples/op20-examples.md` |
+| OP721 standard (NFTs) | `docs/OIP/standard/OIP-0721.md` |
+| OP721 ABI | `docs/opnet/abi-reference/op721-abi.md` |
+| OP721 examples | `docs/opnet/examples/op721-examples.md` |
+| OP20S (signatures) | `docs/opnet/abi-reference/op20s-abi.md` |
+| Custom ABIs | `docs/opnet/abi-reference/custom-abis.md` |
+| ABI data types | `docs/opnet/abi-reference/data-types.md` |
 
 ---
 
@@ -208,18 +208,18 @@ const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
 
 | Topic | Files to Read |
 |-------|---------------|
-| UTXO handling | `docs/core-opnet-bitcoin-utxos.md` |
-| UTXO optimization | `docs/core-opnet-bitcoin-utxo-optimization.md` |
-| Balance queries | `docs/core-opnet-bitcoin-balances.md` |
-| Sending Bitcoin | `docs/core-opnet-bitcoin-sending-bitcoin.md` |
-| PSBT class and signing | `docs/clients-bitcoin-psbt.md` |
-| Payment types | `docs/clients-bitcoin-payments.md` |
-| Script building | `docs/clients-bitcoin-script.md` |
-| Address encoding | `docs/clients-bitcoin-address.md` |
-| Transaction class | `docs/clients-bitcoin-transaction.md` |
+| UTXO handling | `docs/opnet/bitcoin/utxos.md` |
+| UTXO optimization | `docs/opnet/bitcoin/utxo-optimization.md` |
+| Balance queries | `docs/opnet/bitcoin/balances.md` |
+| Sending Bitcoin | `docs/opnet/bitcoin/sending-bitcoin.md` |
+| PSBT class and signing | `docs/bitcoin/psbt.md` |
+| Payment types | `docs/bitcoin/payments.md` |
+| Script building | `docs/bitcoin/script.md` |
+| Address encoding | `docs/bitcoin/address.md` |
+| Transaction class | `docs/bitcoin/transaction.md` |
 | Transaction pinning and CSV | SKILL.md - "CSV: The Critical Anti-Pinning Mechanism" section |
-| BIP32 HD derivation | `docs/clients-bip32-README.md` |
-| EC key pairs | `docs/clients-ecpair-README.md` |
+| BIP32 HD derivation | `docs/bip32/README.md` |
+| EC key pairs | `docs/ecpair/README.md` |
 
 ---
 
@@ -227,11 +227,11 @@ const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
 
 | Topic | Files to Read |
 |-------|---------------|
-| TypeScript security rules | `docs/core-typescript-law-CompleteLaw.md` |
-| Contract security | `docs/contracts-btc-runtime-core-concepts-security.md` |
-| Gas optimization | `docs/contracts-btc-runtime-gas-optimization.md` |
-| Signature verification | `docs/contracts-btc-runtime-advanced-signature-verification.md` |
-| Reentrancy guard | `docs/contracts-btc-runtime-contracts-reentrancy-guard.md` |
+| TypeScript security rules | `docs/typescript-law/CompleteLaw.md` |
+| Contract security | `docs/btc-runtime/core-concepts/security.md` |
+| Gas optimization | `docs/btc-runtime/README.md` |
+| Signature verification | `docs/btc-runtime/advanced/signature-verification.md` |
+| Reentrancy guard | `docs/btc-runtime/contracts/reentrancy-guard.md` |
 | Transaction pinning attacks | SKILL.md - "What is Transaction Pinning?" section |
 | CSV protection | SKILL.md - "The CSV Solution" section |
 | Why CSV is mandatory | SKILL.md - "Why Pinning Destroys DEXs Without Protection" section |
@@ -250,7 +250,7 @@ const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
 | Queue impact | SKILL.md - "Queue Impact" section |
 | Slashing mechanism | SKILL.md - "Slashing" section |
 | Why each component is necessary | SKILL.md - "Summary: Why Each Component Is Necessary" section |
-| Advanced swap examples | `docs/core-opnet-examples-advanced-swaps.md` |
+| Advanced swap examples | `docs/opnet/examples/advanced-swaps.md` |
 
 ---
 
@@ -258,17 +258,17 @@ const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
 
 | Decision | Read |
 |----------|------|
-| Contract vs off-chain logic | `docs/contracts-btc-runtime-README.md` |
-| JSON-RPC vs WebSocket provider | `docs/core-opnet-providers-understanding-providers.md` |
-| JSON-RPC provider details | `docs/core-opnet-providers-json-rpc-provider.md` |
-| WebSocket provider details | `docs/core-opnet-providers-websocket-provider.md` |
-| Provider caching | `docs/core-opnet-providers-internal-caching.md` |
-| Threaded HTTP | `docs/core-opnet-providers-threaded-http.md` |
-| Advanced provider config | `docs/core-opnet-providers-advanced-configuration.md` |
-| Storage types in contracts | `docs/contracts-btc-runtime-core-concepts-storage-system.md` |
-| When to use plugins | `docs/core-OIP-OIP-0003.md` |
-| Upgradeable contracts | `docs/contracts-btc-runtime-contracts-upgradeable.md` |
-| Contract upgrades | `docs/contracts-btc-runtime-advanced-contract-upgrades.md` |
+| Contract vs off-chain logic | `docs/btc-runtime/README.md` |
+| JSON-RPC vs WebSocket provider | `docs/opnet/providers/understanding-providers.md` |
+| JSON-RPC provider details | `docs/opnet/providers/json-rpc-provider.md` |
+| WebSocket provider details | `docs/opnet/providers/websocket-provider.md` |
+| Provider caching | `docs/opnet/providers/internal-caching.md` |
+| Threaded HTTP | `docs/opnet/providers/threaded-http.md` |
+| Advanced provider config | `docs/opnet/providers/advanced-configuration.md` |
+| Storage types in contracts | `docs/btc-runtime/core-concepts/storage-system.md` |
+| When to use plugins | `docs/OIP/OIP/OIP-0003.md` |
+| Upgradeable contracts | `docs/btc-runtime/contracts/upgradeable.md` |
+| Contract upgrades | `docs/btc-runtime/advanced/contract-upgrades.md` |
 
 ---
 
@@ -276,12 +276,46 @@ const sig = await MessageSigner.tweakAndSignMessageAuto(messageHash, keypair);
 
 | OIP | Topic | File |
 |-----|-------|------|
-| OIP-0001 | OIP process | `docs/core-OIP-OIP-0001.md` |
-| OIP-0002 | Contract standards | `docs/core-OIP-OIP-0002.md` |
-| OIP-0003 | Plugin system | `docs/core-OIP-OIP-0003.md` |
-| OIP-0004 | Epoch system | `docs/core-OIP-OIP-0004.md` |
-| OIP-0020 | OP20 token standard | `docs/core-OIP-OIP-0020.md` |
-| OIP-0721 | OP721 NFT standard | `docs/core-OIP-OIP-0721.md` |
+| OIP-0001 | OIP process | `docs/OIP/OIP/OIP-0001.md` |
+| OIP-0002 | Contract standards | `docs/OIP/OIP/OIP-0002.md` |
+| OIP-0003 | Plugin system | `docs/OIP/OIP/OIP-0003.md` |
+| OIP-0004 | Epoch system | `docs/OIP/OIP/OIP-0004.md` |
+| OIP-0020 | OP20 token standard | `docs/OIP/standard/OIP-0020.md` |
+| OIP-0721 | OP721 NFT standard | `docs/OIP/standard/OIP-0721.md` |
+
+---
+
+## Frequently Asked Questions (Breaking Changes)
+
+### "Why am I getting Buffer errors?" / "How do I replace Buffer?"
+
+**Buffer is completely removed from the OPNet stack.** All code must use `Uint8Array`. For hex conversions, use `BufferHelper` from `@btc-vision/transaction`:
+
+```typescript
+import { BufferHelper } from '@btc-vision/transaction';
+const bytes: Uint8Array = BufferHelper.fromHex('deadbeef');
+const hex: string = BufferHelper.toHex(bytes);
+```
+
+### "How do I make a contract upgradeable?"
+
+Extend `Upgradeable` instead of `OP_NET` and implement the `onUpdate()` lifecycle method. This runs once when the contract is upgraded. Storage pointer order must remain stable across versions. See `docs/btc-runtime/contracts/upgradeable.md` and `docs/btc-runtime/advanced/contract-upgrades.md`.
+
+### "Does OPNet support ECDSA / Keccak-256?"
+
+**Yes, natively in the VM.** `Blockchain.verifyECDSASignature()` and Keccak-256 hashing are available. However, ECDSA is DEPRECATED and will stop working when the quantum-safe consensus flag activates (Phase 3). Use `Blockchain.verifySignature()` with ML-DSA or Schnorr for all new contracts.
+
+### "What is a P2MR address?"
+
+P2MR (Pay-to-Taproot-with-ML-DSA-Registration) is a new quantum-resistant address type from BIP-360. It embeds ML-DSA key registration alongside Taproot. Handle P2MR alongside P2TR and P2WPKH in all address validation code. Use `AddressVerificator.isValidP2MRAddress()` from `@btc-vision/transaction`.
+
+### "How do I use WalletConnect v2?"
+
+The `@btc-vision/walletconnect` package has been upgraded to v2. Import patterns remain similar but the underlying protocol has changed. See `docs/walletconnect/README.md` for the updated API.
+
+### "Why do I need to uninstall assemblyscript?"
+
+OPNet uses a custom fork (`@btc-vision/assemblyscript`) with closure support. The upstream `assemblyscript` package conflicts with it. Run `npm uninstall assemblyscript` before installing the OPNet fork.
 
 ---
 

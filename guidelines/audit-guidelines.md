@@ -73,7 +73,7 @@ Always engage professional auditors for contracts handling real value.
 
 **BEFORE AUDITING ANY CODE, YOU MUST READ AND FOLLOW:**
 
-`docs/core-typescript-law-CompleteLaw.md`
+`docs/typescript-law/CompleteLaw.md`
 
 **The TypeScript Law is NON-NEGOTIABLE.** It defines what secure OPNet code looks like. You cannot audit code without knowing the rules.
 
@@ -100,18 +100,18 @@ Always engage professional auditors for contracts handling real value.
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules |
 | 2 | `guidelines/audit-guidelines.md` | This file |
-| 3 | `docs/contracts-btc-runtime-core-concepts-security.md` | Contract security patterns |
-| 4 | `docs/contracts-btc-runtime-gas-optimization.md` | Gas vulnerabilities |
-| 5 | `docs/contracts-btc-runtime-api-reference-safe-math.md` | SafeMath requirements |
-| 6 | `docs/contracts-btc-runtime-types-bytes-writer-reader.md` | Serialization patterns |
+| 3 | `docs/btc-runtime/core-concepts/security.md` | Contract security patterns |
+| 4 | `docs/btc-runtime/README.md` | Gas optimization & vulnerabilities |
+| 5 | `docs/btc-runtime/api-reference/safe-math.md` | SafeMath requirements |
+| 6 | `docs/btc-runtime/types/bytes-writer-reader.md` | Serialization patterns |
 
 ### For Frontend/Backend Audits
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules |
 | 2 | `guidelines/audit-guidelines.md` | This file |
 | 3 | `guidelines/frontend-guidelines.md` or `guidelines/backend-guidelines.md` | Platform-specific patterns |
 
@@ -119,7 +119,7 @@ Always engage professional auditors for contracts handling real value.
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules |
 | 2 | `guidelines/audit-guidelines.md` | This file |
 | 3 | SKILL.md - "CSV: The Critical Anti-Pinning Mechanism" section | Transaction pinning |
 | 4 | SKILL.md - "NativeSwap" section | DEX architecture |
@@ -128,7 +128,7 @@ Always engage professional auditors for contracts handling real value.
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules |
 | 2 | `guidelines/audit-guidelines.md` | This file |
 | 3 | `guidelines/plugin-guidelines.md` | Plugin patterns, reorg handling |
 
@@ -779,6 +779,49 @@ For EVERY data type, verify read/write methods match:
 | L-03 | Immutability Bypass | Inherited methods bypass protection | Unexpected mutations |
 | L-04 | Hash Truncation | Reducing hash from 32 to 30 bytes | Reduced collision resistance |
 | L-05 | Incorrect Generic Type | Wrong type parameter in generic class | Compilation/runtime issues |
+
+---
+
+## Upgrade Safety Audit
+
+### Upgradeable Contract Checklist
+
+| Check | Pass Criteria | Severity |
+|-------|---------------|----------|
+| Extends `Upgradeable` | Contract uses `Upgradeable` base class if upgrade support is needed | HIGH |
+| `onUpdate()` implemented | Lifecycle hook handles storage migration correctly | CRITICAL |
+| Pointer order preserved | Storage pointer declarations are in same order as previous version | CRITICAL |
+| New pointers appended only | No pointers inserted between existing ones | CRITICAL |
+| Version tracking | Contract tracks its version to prevent double-migration | HIGH |
+| onUpdate idempotency | Running onUpdate twice does not corrupt state | HIGH |
+
+---
+
+## P2MR (BIP-360) Address Validation
+
+### P2MR Checklist
+
+| Check | Pass Criteria | Severity |
+|-------|---------------|----------|
+| P2MR address support | AddressVerificator handles P2MR alongside P2TR/P2WPKH | HIGH |
+| P2MR validation | `isValidP2MRAddress()` used for quantum-resistant addresses | HIGH |
+| Address type detection | `detectAddressType()` correctly identifies P2MR | MEDIUM |
+| Frontend handling | UI accepts and displays P2MR addresses correctly | MEDIUM |
+
+---
+
+## Quantum Signature Verification Checks
+
+### Quantum Safety Checklist
+
+| Check | Pass Criteria | Severity |
+|-------|---------------|----------|
+| No ECDSA in new contracts | New contracts use `verifySignature()` with ML-DSA or Schnorr, not `verifyECDSASignature()` | CRITICAL |
+| Phase-aware verification | `Blockchain.verifySignature()` used (consensus-aware, auto-upgrades) | HIGH |
+| ML-DSA preferred | Quantum-critical operations explicitly use `SignaturesMethods.MLDSA` | HIGH |
+| Client-side ML-DSA signing | `MessageSigner.signMLDSAMessageAuto()` used, not ECDSA | HIGH |
+| No ECDSA client tooling dependency | Code does not rely on unsupported ECDSA signing paths | MEDIUM |
+| Keccak-256 awareness | If Keccak-256 is used, document that it exists for migration only | LOW |
 
 ---
 

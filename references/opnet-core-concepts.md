@@ -217,3 +217,75 @@ This makes manipulation economically irrational and ensures queue depth is a rel
 
 ---
 
+## Contract Upgrades
+
+OPNet supports contract upgrades via the `Upgradeable` base class. Contracts that extend `Upgradeable` (instead of `OP_NET`) can have their bytecode replaced while preserving storage state.
+
+### How It Works
+
+1. Contract extends `Upgradeable` instead of `OP_NET`
+2. Implements `onUpdate(oldVersion: u256, calldata: Calldata)` lifecycle hook
+3. When a new .wasm is deployed to the same address, `onUpdate()` is called
+4. Storage remains intact - `onUpdate()` handles any migration needed
+
+### Safety Considerations
+
+- Only the deployer/owner should be able to trigger upgrades (enforce in `onUpdate()`)
+- Storage pointers must remain compatible between versions
+- New storage fields can be added but existing ones should not be reordered
+- Always increment a version counter for tracking
+
+**Reference:** `docs/btc-runtime/contracts/upgradeable.md`, `docs/btc-runtime/advanced/contract-upgrades.md`
+
+---
+
+## P2MR Addresses (BIP-360)
+
+P2MR (Pay-to-ML-DSA-Root) is a new Bitcoin address type for quantum-resistant transactions. It uses ML-DSA (FIPS 204) signatures instead of Schnorr/ECDSA.
+
+### Key Points
+
+- P2MR addresses coexist with P2TR (Taproot) and P2WPKH (SegWit) addresses
+- The `@btc-vision/bitcoin` package provides full P2MR support
+- Wallets that support ML-DSA signatures (like OP_WALLET) can generate P2MR addresses
+- Applications should handle P2MR alongside existing address types
+
+**Reference:** `docs/bitcoin/p2mr.md`, `docs/transaction/addresses/P2WDA.md`
+
+---
+
+## Quantum Resistance (ML-DSA)
+
+OPNet implements quantum resistance through ML-DSA (Module-Lattice-based Digital Signature Algorithm, FIPS 204):
+
+- **ML-DSA signatures** replace Schnorr/ECDSA for future-proof security
+- **ECDSA and Schnorr are DEPRECATED** - they still work but will be disabled when consensus flips `UNSAFE_QUANTUM_SIGNATURES_ALLOWED`
+- **Blockchain.verifySignature()** is the ONLY correct verification method - it's consensus-aware and auto-selects the right algorithm
+- **Auto signing methods** (signMessageAuto, tweakAndSignMessageAuto, signMLDSAMessageAuto) auto-detect browser vs backend
+
+**Reference:** `docs/transaction/quantum-support/README.md`
+
+---
+
+## ABI Validation (Constant/Payable)
+
+Contract methods can be annotated with ABI validation attributes:
+
+- **constant**: Method is read-only, cannot modify contract state. The VM enforces this - any state change in a constant method will revert.
+- **payable**: Method can receive BTC. Non-payable methods will revert if BTC is included in the transaction.
+
+This is enforced at the ABI level, providing an additional safety layer.
+
+---
+
+## Buffer→Uint8Array Migration
+
+The entire OPNet stack has removed Node.js `Buffer` in favor of `Uint8Array`:
+
+- All APIs that previously accepted/returned `Buffer` now use `Uint8Array`
+- Use `BufferHelper` from `@btc-vision/transaction` for hex string conversions
+- Use `TextEncoder`/`TextDecoder` for string encoding
+- This is a **BREAKING CHANGE** - existing code using Buffer will fail
+
+---
+

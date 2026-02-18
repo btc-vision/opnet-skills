@@ -28,7 +28,7 @@ const contract = getContract(address, abi, provider);
 const contract = getContract(address, abi, provider, network, senderAddress);
 ```
 
-**Read `docs/core-opnet-contracts-instantiating-contracts.md` for the exact signature. Do NOT guess the params.**
+**Read `docs/opnet/contracts/instantiating-contracts.md` for the exact signature. Do NOT guess the params.**
 
 #### 3. WRONG: Gating frontend actions on `signer` from walletconnect
 
@@ -54,7 +54,7 @@ const { provider } = useWalletConnect();
 const data = await provider.call(...);
 
 // CORRECT - Dedicated read provider
-const readProvider = new JSONRpcProvider('https://regtest.opnet.org');
+const readProvider = new JSONRpcProvider({ url: 'https://regtest.opnet.org', network: networks.regtest });
 const contract = readProvider.getContract(address, abi);
 const data = await contract.someReadMethod();
 ```
@@ -144,6 +144,89 @@ const { publicKey, hashedMLDSAKey, mldsaPublicKey, address: walletAddress } = us
 - `publicKey` (0x hex, 33 bytes) → Bitcoin tweaked public key, for Address.fromString **second** param
 - `hashedMLDSAKey` (0x hex, 32 bytes) → SHA256 hash of ML-DSA public key, for Address.fromString **first** param
 - `mldsaPublicKey` (0x hex, ~2500 bytes) → Raw ML-DSA public key, for MLDSA signing/verification ONLY. **NEVER** use for Address.fromString
+
+#### 8. WRONG: Using `Buffer` anywhere in frontend code
+
+```typescript
+// WRONG - Buffer is REMOVED from the OPNet stack
+const data = Buffer.from(hexString, 'hex');
+const hex = Buffer.from(bytes).toString('hex');
+
+// CORRECT - Use Uint8Array and BufferHelper
+import { BufferHelper } from '@btc-vision/transaction';
+
+const data = BufferHelper.hexToUint8Array(hexString);
+const hex = BufferHelper.uint8ArrayToHex(bytes);
+```
+
+**Buffer no longer exists in OPNet packages. All APIs use Uint8Array. Use BufferHelper for conversions.**
+
+#### 9. WRONG: Using old WalletConnect v1 API
+
+```typescript
+// WRONG - v1 API (deprecated)
+const { connect, provider, signer } = useWalletConnect();
+await connect();
+
+// CORRECT - v2 API
+const { connectToWallet, openConnectModal, provider } = useWalletConnect();
+// Use openConnectModal() for UI-driven connection
+// Use connectToWallet(SupportedWallets.OP_WALLET) for programmatic connection
+```
+
+**WalletConnect has been upgraded to v2. The API has changed. See `docs/walletconnect/README.md`.**
+
+#### 10. WRONG: Manually checking address prefixes instead of using AddressVerificator
+
+```typescript
+// WRONG - Manual prefix checking is fragile and misses address types
+if (address.startsWith('bc1p')) { /* P2TR */ }
+else if (address.startsWith('bc1q')) { /* P2WPKH */ }
+// Misses P2MR, P2OP, P2WSH, P2WDA, P2SH, P2PKH...
+
+// CORRECT - Use AddressVerificator from @btc-vision/transaction
+import { AddressVerificator, AddressTypes } from '@btc-vision/transaction';
+
+const addressType = AddressVerificator.detectAddressType(address, network);
+
+switch (addressType) {
+    case AddressTypes.P2TR:
+        // Taproot address (bc1p...)
+        break;
+    case AddressTypes.P2WPKH:
+        // SegWit address (bc1q..., 20-byte program)
+        break;
+    case AddressTypes.P2MR:
+        // BIP-360 quantum-resistant address (bc1z..., witness version 2)
+        break;
+    case AddressTypes.P2OP:
+        // OPNet address (witness version 16, bech32m)
+        break;
+    case AddressTypes.P2WSH:
+        // Witness Script Hash (bc1q..., 32-byte program)
+        break;
+    case AddressTypes.P2WDA:
+        // Witness Data Authentication (P2WSH variant)
+        break;
+    case AddressTypes.P2PKH:
+    case AddressTypes.P2SH_OR_P2SH_P2WPKH:
+        // Legacy address types
+        break;
+    default:
+        // Unknown type - handle gracefully
+        break;
+}
+
+// Individual validation methods also available:
+AddressVerificator.isValidP2TRAddress(address, network);   // boolean
+AddressVerificator.isP2WPKHAddress(address, network);      // boolean
+AddressVerificator.isValidP2MRAddress(address, network);   // boolean
+AddressVerificator.isValidP2OPAddress(address, network);   // boolean
+AddressVerificator.isValidPublicKey(input, network);       // boolean (classical)
+AddressVerificator.isValidMLDSAPublicKey(input);           // MLDSASecurityLevel | null
+```
+
+**NEVER manually check address prefixes. Use `AddressVerificator.detectAddressType()` for type detection and individual `isValid*` methods for validation. It handles all address types including P2MR (BIP-360, quantum-resistant). See `docs/transaction/keypair/address-verificator.md`.**
 
 ---
 

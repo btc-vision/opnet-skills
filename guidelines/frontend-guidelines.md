@@ -38,7 +38,7 @@ npx npm-check-updates -u && npm install
 
 **BEFORE WRITING ANY FRONTEND CODE, YOU MUST READ AND FOLLOW:**
 
-`docs/core-typescript-law-CompleteLaw.md`
+`docs/typescript-law/CompleteLaw.md`
 
 **The TypeScript Law is NON-NEGOTIABLE.** Every line of code must comply. Violations lead to exploitable, broken code.
 
@@ -62,24 +62,78 @@ npx npm-check-updates -u && npm install
 
 ---
 
+## CRITICAL: Buffer is REMOVED -- Use Uint8Array
+
+**`Buffer` is completely removed from the OPNet stack.** All frontend code must use `Uint8Array` for binary data. For hex conversions, use `BufferHelper` from `@btc-vision/transaction`:
+
+```typescript
+import { BufferHelper } from '@btc-vision/transaction';
+
+const bytes: Uint8Array = BufferHelper.fromHex('deadbeef');
+const hex: string = BufferHelper.toHex(bytes);
+```
+
+**Do NOT use `Buffer.from()`, `Buffer.alloc()`, or any Node.js Buffer API.** They are not available in the OPNet libraries.
+
+---
+
+## P2MR Address Type (BIP-360)
+
+OPNet now supports **P2MR (Pay-to-Taproot-with-ML-DSA-Registration)** addresses for quantum-resistant transactions. Frontend code must handle P2MR alongside P2TR and P2WPKH:
+
+```typescript
+import { AddressVerificator } from '@btc-vision/transaction';
+
+// Validate P2MR addresses in addition to P2TR and P2WPKH
+const isP2MR = AddressVerificator.isValidP2MRAddress(address, network);
+const isP2TR = AddressVerificator.isValidP2TRAddress(address, network);
+const isP2WPKH = AddressVerificator.isP2WPKHAddress(address, network);
+```
+
+When displaying or validating user addresses, always account for all three types: P2TR, P2WPKH, and P2MR.
+
+---
+
+## WalletConnect v2 API
+
+The WalletConnect integration has been upgraded to **v2**. Import patterns and API have changed:
+
+```typescript
+// v2 imports
+import { useWalletConnect, SupportedWallets } from '@btc-vision/walletconnect';
+
+// The hook API remains similar but the underlying protocol is v2
+const {
+    isConnected,
+    address,
+    network,
+    connectToWallet,
+    disconnect,
+} = useWalletConnect();
+```
+
+For full v2 API details, see: `docs/walletconnect/README.md`
+
+---
+
 ## Mandatory Reading Order
 
 **This guideline is a SUMMARY. You MUST read the following docs files IN ORDER before writing frontend code:**
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules, forbidden constructs |
 | 2 | `guidelines/setup-guidelines.md` | Package versions, vite config |
 | 3 | `guidelines/frontend-guidelines.md` | This file - summary of patterns |
-| 4 | `docs/core-opnet-README.md` | Client library overview |
-| 5 | `docs/core-opnet-getting-started-installation.md` | Installation |
-| 6 | `docs/core-opnet-getting-started-quick-start.md` | Quick start |
-| 7 | `docs/core-opnet-providers-json-rpc-provider.md` | Provider setup |
-| 8 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
-| 9 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
-| 10 | `docs/core-opnet-contracts-simulating-calls.md` | Read operations |
-| 11 | `docs/core-opnet-contracts-sending-transactions.md` | Write operations |
-| 12 | `docs/clients-walletconnect-README.md` | Wallet connection |
+| 4 | `docs/opnet/README.md` | Client library overview |
+| 5 | `docs/opnet/getting-started/installation.md` | Installation |
+| 6 | `docs/opnet/getting-started/quick-start.md` | Quick start |
+| 7 | `docs/opnet/providers/json-rpc-provider.md` | Provider setup |
+| 8 | `docs/opnet/providers/internal-caching.md` | Caching (MANDATORY) |
+| 9 | `docs/opnet/contracts/instantiating-contracts.md` | Contract instances |
+| 10 | `docs/opnet/contracts/simulating-calls.md` | Read operations |
+| 11 | `docs/opnet/contracts/sending-transactions.md` | Write operations |
+| 12 | `docs/walletconnect/README.md` | Wallet connection (v2 API) |
 | 13 | `docs/frontend-motoswap-ui-README.md` | **THE STANDARD** - Reference implementation |
 
 **IF YOU SKIP THESE DOCS, YOUR FRONTEND WILL HAVE BUGS.**
@@ -190,14 +244,14 @@ src/
 ```typescript
 // services/ProviderService.ts
 import { JSONRpcProvider } from 'opnet';
-import { Networks } from '@btc-vision/bitcoin';
+import { networks, Network } from '@btc-vision/bitcoin';
 
 /**
  * Singleton provider service. Never create multiple provider instances.
  */
 class ProviderService {
     private static instance: ProviderService;
-    private providers: Map<Networks, JSONRpcProvider> = new Map();
+    private providers: Map<string, JSONRpcProvider> = new Map();
 
     private constructor() {}
 
@@ -212,24 +266,30 @@ class ProviderService {
      * Get or create provider for network.
      * Provider is created ONCE and reused.
      */
-    public getProvider(network: Networks): JSONRpcProvider {
-        if (!this.providers.has(network)) {
+    public getProvider(network: Network): JSONRpcProvider {
+        const networkId = this.getNetworkId(network);
+        if (!this.providers.has(networkId)) {
             const rpcUrl = this.getRpcUrl(network);
-            const provider = new JSONRpcProvider(rpcUrl, network);
-            this.providers.set(network, provider);
+            const provider = new JSONRpcProvider({ url: rpcUrl, network });
+            this.providers.set(networkId, provider);
         }
-        return this.providers.get(network)!;
+        return this.providers.get(networkId)!;
     }
 
-    private getRpcUrl(network: Networks): string {
-        switch (network) {
-            case Networks.Mainnet:
-                return 'https://api.opnet.org';
-            case Networks.Regtest:
-                return 'http://localhost:9001';
-            default:
-                throw new Error(`Unsupported network: ${network}`);
+    private getRpcUrl(network: Network): string {
+        if (network === networks.bitcoin) {
+            return 'https://api.opnet.org';
+        } else if (network === networks.regtest) {
+            return 'http://localhost:9001';
         }
+        throw new Error('Unsupported network');
+    }
+
+    private getNetworkId(network: Network): string {
+        if (network === networks.bitcoin) return 'mainnet';
+        if (network === networks.regtest) return 'regtest';
+        if (network === networks.testnet) return 'testnet';
+        return 'unknown';
     }
 }
 
@@ -240,8 +300,8 @@ export const providerService = ProviderService.getInstance();
 
 ```typescript
 // services/ContractService.ts
-import { IOP20Contract, getContract, OP20_ABI } from 'opnet';
-import { Networks } from '@btc-vision/bitcoin';
+import { IOP20Contract, getContract, OP_20_ABI } from 'opnet';
+import { Network } from '@btc-vision/bitcoin';
 import { providerService } from './ProviderService';
 
 /**
@@ -264,12 +324,12 @@ class ContractService {
      * Get or create contract instance.
      * Contract is created ONCE and reused.
      */
-    public getTokenContract(address: string, network: Networks): IOP20Contract {
+    public getTokenContract(address: string, network: Network): IOP20Contract {
         const key = `${network}:${address}`;
 
         if (!this.contracts.has(key)) {
             const provider = providerService.getProvider(network);
-            const contract = getContract<IOP20Contract>(address, OP20_ABI, provider);
+            const contract = getContract<IOP20Contract>(address, OP_20_ABI, provider, network);
             this.contracts.set(key, contract);
         }
 
@@ -293,7 +353,7 @@ export const contractService = ContractService.getInstance();
 // hooks/useContract.ts
 import { useMemo } from 'react';
 import { IOP20Contract } from 'opnet';
-import { Networks } from '@btc-vision/bitcoin';
+import { Network } from '@btc-vision/bitcoin';
 import { contractService } from '../services/ContractService';
 import { useNetwork } from './useNetwork';
 
@@ -340,10 +400,10 @@ const metadata = metadataResult.properties;
 // metadata contains:
 // - name: string
 // - symbol: string
+// - icon: string
 // - decimals: number
 // - totalSupply: bigint
-// - owner: Address (if applicable)
-// - and more...
+// - domainSeparator: Uint8Array
 
 const { name, symbol, decimals, totalSupply } = metadata;
 ```
@@ -403,28 +463,28 @@ async function getTokenMetadata(address: string): Promise<TokenMetadata> {
 
 ## Network Configuration
 
-### ALWAYS Use Enums from @btc-vision/bitcoin
+### ALWAYS Use `networks` Namespace from @btc-vision/bitcoin
 
-**NEVER hardcode network strings.** Use the official enums:
+**NEVER hardcode network strings.** Use the official `networks` namespace and `Network` type:
 
 ```typescript
-import { Networks } from '@btc-vision/bitcoin';
-import { ChainId } from '@btc-vision/transaction';
+import { networks, Network } from '@btc-vision/bitcoin';
 
 // WRONG - Hardcoded strings
 const network = 'mainnet';
 const network = 'regtest';
 
-// CORRECT - Use enums
-const network = Networks.Mainnet;
-const network = Networks.Regtest;
+// CORRECT - Use networks namespace
+const network: Network = networks.bitcoin;   // mainnet
+const network: Network = networks.regtest;   // regtest
+const network: Network = networks.testnet;   // testnet
 ```
 
 ### Network Config File
 
 ```typescript
 // config/networks.ts
-import { Networks } from '@btc-vision/bitcoin';
+import { networks, Network } from '@btc-vision/bitcoin';
 
 export interface NetworkConfig {
     name: string;
@@ -432,30 +492,30 @@ export interface NetworkConfig {
     explorerUrl: string;
 }
 
-export const NETWORK_CONFIGS: Record<Networks, NetworkConfig> = {
-    [Networks.Mainnet]: {
+export const NETWORK_CONFIGS: Map<Network, NetworkConfig> = new Map([
+    [networks.bitcoin, {
         name: 'Mainnet',
         rpcUrl: 'https://api.opnet.org',
         explorerUrl: 'https://explorer.opnet.org',
-    },
-    [Networks.Testnet]: {
+    }],
+    [networks.testnet, {
         name: 'Testnet',
         rpcUrl: 'https://testnet.opnet.org',
         explorerUrl: 'https://testnet-explorer.opnet.org',
-    },
-    [Networks.Regtest]: {
+    }],
+    [networks.regtest, {
         name: 'Regtest',
         rpcUrl: 'http://localhost:9001',
         explorerUrl: 'http://localhost:3000',
-    },
-};
+    }],
+]);
 ```
 
 ### Contract Addresses Per Network
 
 ```typescript
 // config/contracts.ts
-import { Networks } from '@btc-vision/bitcoin';
+import { networks, Network } from '@btc-vision/bitcoin';
 
 export interface ContractAddresses {
     token: string;
@@ -463,31 +523,36 @@ export interface ContractAddresses {
     // Add other contracts
 }
 
-export const CONTRACT_ADDRESSES: Record<Networks, ContractAddresses> = {
-    [Networks.Mainnet]: {
+export const CONTRACT_ADDRESSES: Map<Network, ContractAddresses> = new Map([
+    [networks.bitcoin, {
         token: 'bcrt1q...mainnet-address',
         staking: 'bcrt1q...mainnet-staking',
-    },
-    [Networks.Testnet]: {
+    }],
+    [networks.testnet, {
         token: 'bcrt1q...testnet-address',
-    },
-    [Networks.Regtest]: {
+    }],
+    [networks.regtest, {
         token: 'bcrt1q...regtest-address',
-    },
-};
+    }],
+]);
 
 /**
  * Get contract address for current network.
  */
 export function getContractAddress(
     contract: keyof ContractAddresses,
-    network: Networks
+    network: Network
 ): string {
-    const addresses = CONTRACT_ADDRESSES[network];
+    const addresses = CONTRACT_ADDRESSES.get(network);
+
+    if (!addresses) {
+        throw new Error(`No addresses configured for network`);
+    }
+
     const address = addresses[contract];
 
     if (!address) {
-        throw new Error(`No ${contract} address configured for ${network}`);
+        throw new Error(`No ${contract} address configured for network`);
     }
 
     return address;
@@ -505,13 +570,13 @@ The website must handle network changes WITHOUT requiring page refresh:
 ```typescript
 // hooks/useNetwork.ts
 import { useState, useEffect, useCallback } from 'react';
-import { Networks } from '@btc-vision/bitcoin';
+import { networks, Network } from '@btc-vision/bitcoin';
 import { useWalletConnect } from '@btc-vision/walletconnect';
 import { contractService } from '../services/ContractService';
 
 export function useNetwork() {
     const { network: walletNetwork, isConnected } = useWalletConnect();
-    const [network, setNetwork] = useState<Networks>(Networks.Mainnet);
+    const [network, setNetwork] = useState<Network>(networks.bitcoin);
 
     // Auto-detect wallet network change
     useEffect(() => {
@@ -525,7 +590,7 @@ export function useNetwork() {
     }, [walletNetwork, isConnected, network]);
 
     // Manual network switch (when not connected)
-    const switchNetwork = useCallback((newNetwork: Networks) => {
+    const switchNetwork = useCallback((newNetwork: Network) => {
         contractService.clearCache();
         setNetwork(newNetwork);
     }, []);
@@ -543,7 +608,7 @@ export function useNetwork() {
 ```typescript
 // components/wallet/WalletConnect.tsx
 import { useWalletConnect, SupportedWallets } from '@btc-vision/walletconnect';
-import { Networks } from '@btc-vision/bitcoin';
+import { networks } from '@btc-vision/bitcoin';
 import { formatAddress } from '../../utils/formatting';
 
 export function WalletConnect() {
@@ -563,7 +628,7 @@ export function WalletConnect() {
         return (
             <div className="wallet-info">
                 <span className="network-badge">
-                    {network === Networks.Mainnet ? 'Mainnet' : 'Regtest'}
+                    {network === networks.bitcoin ? 'Mainnet' : 'Regtest'}
                 </span>
                 <span className="address">{formatAddress(address)}</span>
                 <button onClick={disconnect}>Disconnect</button>
@@ -628,8 +693,8 @@ export function useTokenData() {
 
 ```typescript
 // ✅ BOTH are valid for contract addresses
-const contract1 = getContract<IOP20Contract>('op1qwerty...', OP20_ABI, provider);
-const contract2 = getContract<IOP20Contract>('0x1234abcd...', OP20_ABI, provider);
+const contract1 = getContract<IOP20Contract>('op1qwerty...', OP_20_ABI, provider, network);
+const contract2 = getContract<IOP20Contract>('0x1234abcd...', OP_20_ABI, provider, network);
 ```
 
 ### AddressVerificator (ALWAYS USE)
@@ -665,9 +730,9 @@ const addressType = AddressVerificator.detectAddressType('bc1q...', networks.bit
 // hooks/useAddressValidation.ts
 import { useMemo } from 'react';
 import { AddressVerificator } from '@btc-vision/transaction';
-import { Networks } from '@btc-vision/bitcoin';
+import { Network } from '@btc-vision/bitcoin';
 
-export function useAddressValidation(address: string, network: Networks) {
+export function useAddressValidation(address: string, network: Network) {
     return useMemo(() => {
         if (!address) {
             return { isValid: false, type: null, error: 'Address required' };
@@ -726,7 +791,7 @@ const result = await contract.transfer(recipientPubKey, amount);
 // services/PublicKeyService.ts
 import { JSONRpcProvider } from 'opnet';
 import { AddressVerificator } from '@btc-vision/transaction';
-import { Networks } from '@btc-vision/bitcoin';
+import { Network } from '@btc-vision/bitcoin';
 
 /**
  * Service for resolving Bitcoin addresses to public keys.
@@ -752,7 +817,7 @@ class PublicKeyService {
     public async getPublicKey(
         address: string,
         provider: JSONRpcProvider,
-        network: Networks
+        network: Network
     ): Promise<string | null> {
         // Already a public key - validate it
         if (address.startsWith('0x')) {
@@ -1008,6 +1073,8 @@ export class FormatUtils {
 
 ```typescript
 // utils/validation.ts
+import { AddressVerificator } from '@btc-vision/transaction';
+import { Network } from '@btc-vision/bitcoin';
 
 /**
  * Validation utilities.
@@ -1016,9 +1083,8 @@ export class ValidationUtils {
     /**
      * Validate Bitcoin address format.
      */
-    public static isValidAddress(address: string): boolean {
-        // Basic validation - starts with expected prefix
-        return /^(bc1|bcrt1|tb1)[a-z0-9]{39,87}$/i.test(address);
+    public static isValidAddress(address: string, network: Network): boolean {
+        return AddressVerificator.isValidAddress(address, network);
     }
 
     /**
@@ -1037,12 +1103,14 @@ export class ValidationUtils {
 ```typescript
 import { FormatUtils } from '../utils/formatting';
 import { ValidationUtils } from '../utils/validation';
+import { useNetwork } from '../hooks/useNetwork';
 
 function TransferForm() {
+    const { network } = useNetwork();
     const [recipient, setRecipient] = useState('');
     const [amount, setAmount] = useState('');
 
-    const isValid = ValidationUtils.isValidAddress(recipient)
+    const isValid = ValidationUtils.isValidAddress(recipient, network)
         && ValidationUtils.isValidAmount(amount);
 
     const handleSubmit = () => {
@@ -1177,10 +1245,10 @@ function process(input: TokenData): ProcessedData { }
 **WRONG:**
 ```typescript
 function Component1() {
-    const provider = new JSONRpcProvider(url, network);  // New instance
+    const provider = new JSONRpcProvider({ url, network });  // New instance
 }
 function Component2() {
-    const provider = new JSONRpcProvider(url, network);  // Another instance!
+    const provider = new JSONRpcProvider({ url, network });  // Another instance!
 }
 ```
 
@@ -1218,9 +1286,9 @@ const config = configs['regtest'];
 
 **CORRECT:**
 ```typescript
-import { Networks } from '@btc-vision/bitcoin';
-if (network === Networks.Mainnet) { }
-const config = configs[Networks.Regtest];
+import { networks } from '@btc-vision/bitcoin';
+if (network === networks.bitcoin) { }
+const config = configs.get(networks.regtest);
 ```
 
 ### 4. Not Handling Network Switch
@@ -1655,7 +1723,7 @@ export function ThemeToggle() {
 - [ ] Clear caches on network change
 
 ### Network
-- [ ] Use `Networks` enum from @btc-vision/bitcoin
+- [ ] Use `networks` namespace and `Network` type from @btc-vision/bitcoin
 - [ ] Config file has addresses for all networks (mainnet, regtest)
 - [ ] Auto-detect wallet network switch (no page refresh)
 - [ ] NO hardcoded network strings

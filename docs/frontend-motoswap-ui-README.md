@@ -5,7 +5,9 @@ This guide covers how to integrate OPNet into frontend applications, including w
 ## Required Dependencies
 
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+rm -rf node_modules package-lock.json
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc --prefer-online
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0 eslint-plugin-react-hooks eslint-plugin-react-refresh
 ```
 
 ```json
@@ -963,7 +965,7 @@ Copy config templates from `setup/` folder:
 
 ```bash
 cp setup/.prettierrc .prettierrc
-cp setup/eslint-react.json .eslintrc.json
+cp setup/eslint-react.js eslint.config.js
 cp setup/tsconfig-generic.json tsconfig.json
 ```
 

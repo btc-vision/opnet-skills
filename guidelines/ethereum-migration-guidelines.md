@@ -30,7 +30,7 @@
 | Native currency | ETH (gas token) | BTC (directly on Bitcoin L1) |
 | Consensus | PoS validators | Bitcoin PoW + OPNet epoch miners |
 | Revert behavior | Atomic all-or-nothing | **Partial**: contract state reverts, BTC transfers do NOT |
-| Address system | Single (20-byte hash from ECDSA) | Dual (Bitcoin P2TR + ML-DSA hash) |
+| Address system | Single (20-byte hash from ECDSA) | Dual (Bitcoin P2TR/P2MR + ML-DSA hash) |
 | Contract storage | Implicit `mapping(k => v)` | Explicit `StoredU256`, `AddressMemoryMap` with pointers |
 | Gas token | ETH itself | No gas token -- uses Bitcoin fee rate + priority fee |
 | Contract holds funds | Yes (`payable`, `msg.value`) | **IMPOSSIBLE** -- verify-don't-custody pattern |
@@ -54,6 +54,7 @@
   - `ExtendedAddress`: Contains BOTH the Bitcoin tweaked public key (32 bytes) AND the ML-DSA public key hash (32 bytes)
 - `Blockchain.tx.sender` returns an `Address` (ML-DSA address of the caller)
 - `Blockchain.tx.origin` returns an `ExtendedAddress` (both keys)
+- **P2MR addresses (BIP-360)**: A new quantum-resistant address type. P2MR embeds ML-DSA registration alongside Taproot. Handle P2MR alongside P2TR and P2WPKH in all address validation code.
 
 ### Why Two Systems?
 Quantum safety requires two independent cryptographic systems. Bitcoin's existing Schnorr/ECDSA signatures are quantum-vulnerable. ML-DSA (a lattice-based algorithm) is quantum-resistant. During the transition period, both must coexist.
@@ -136,6 +137,10 @@ const isValid: bool = Blockchain.verifySignature(
 - Consensus handles the switch transparently -- the same `verifySignature()` call works across all phases
 - If you want to enforce quantum safety NOW: use `SignaturesMethods.MLDSA` explicitly
 
+### ECDSA + Keccak-256: Now Natively Supported in VM
+
+The OPNet VM now has **native support for ECDSA signature verification and Keccak-256 hashing**. This means Ethereum-style cryptographic operations are available, but they are DEPRECATED and will be disabled in Phase 3 of the quantum migration. They exist to ease migration, not as a long-term solution.
+
 ### ECDSA: Supported But WILL Break -- DO NOT USE
 
 **IMPORTANT: When a user asks about ecrecover or ECDSA on OPNet, ALWAYS show `Blockchain.verifySignature()` with ML-DSA/Schnorr FIRST. Only mention ECDSA as a last resort if the user specifically insists after being warned. ECDSA is not just deprecated -- it is on a countdown to being permanently disabled. When the `UNSAFE_QUANTUM_SIGNATURES_ALLOWED` consensus flag is turned off, every contract using ECDSA will start reverting with no grace period. Users who use ECDSA because they are lazy will have their contracts break. There is no migration path once the flag flips -- the contract must be redeployed.**
@@ -174,7 +179,7 @@ const isValid: bool = Blockchain.verifyBitcoinECDSASignature(
 | N/A | `MessageSigner.signMessageAuto()` (Schnorr, general signing) |
 | N/A | `MessageSigner.tweakAndSignMessageAuto()` (Taproot ownership proofs) |
 
-**Use the `Auto` methods.** They automatically use OP_WALLET in the browser (omit keypair) or fall back to local keypair signing on the backend (pass keypair). See `docs/core-transaction-quantum-support-04-message-signing.md` for full API details.
+**Use the `Auto` methods.** They automatically use OP_WALLET in the browser (omit keypair) or fall back to local keypair signing on the backend (pass keypair). See `docs/transaction/quantum-support/04-message-signing.md` for full API details.
 
 ### API Comparison
 
@@ -209,11 +214,12 @@ const isValid: bool = Blockchain.verifyBitcoinECDSASignature(
 | `totalSupply()` | `totalSupply()` | Returns `u256` |
 | `balanceOf(address)` | `balanceOf(address)` | Uses ML-DSA address |
 | `transfer(to, amount)` | `transfer(to, amount)` | `u256` SafeMath mandatory |
-| `approve(spender, amount)` | `approve(spender, amount)` | Same concept |
+| `approve(spender, amount)` | **Does NOT exist** | Use `increaseAllowance` / `decreaseAllowance` instead (prevents approve race condition) |
 | `allowance(owner, spender)` | `allowance(owner, spender)` | Same concept |
 | `transferFrom(from, to, amount)` | `transferFrom(from, to, amount)` | Same concept |
-| N/A | `increaseAllowanceBySig(...)` | Signature-based approval (OP-20S) |
-| N/A | `decreaseAllowanceBySig(...)` | Signature-based approval (OP-20S) |
+| N/A | `increaseAllowance(spender, amount)` | Replaces `approve` (safe increment) |
+| N/A | `decreaseAllowance(spender, amount)` | Replaces `approve` (safe decrement) |
+| N/A | `metadata()` | Returns name, symbol, decimals, totalSupply, icon, domainSeparator in ONE call |
 
 ### Key Differences
 
@@ -253,7 +259,7 @@ The mapping follows the same pattern. Key additions in OP-721:
 - Reservation system for NFT minting (prevents front-running)
 - Two-phase commit for transfers involving BTC
 
-For full ABI details, see: `docs/core-opnet-abi-reference-op20-abi.md` and `docs/core-opnet-abi-reference-op721-abi.md`
+For full ABI details, see: `docs/opnet/abi-reference/op20-abi.md` and `docs/opnet/abi-reference/op721-abi.md`
 
 ---
 
@@ -290,7 +296,7 @@ The user's wallet provides both keys. The contract links them at claim time.
 - **"Users lose unclaimed tokens"** -- Yes, by design. Tokens allocated but never claimed remain locked. Set reasonable claim deadlines.
 - **"I can airdrop to ML-DSA addresses directly"** -- Only if you already have them from prior wallet connection. For most airdrops, you know users by Bitcoin address only.
 
-For complete implementation details, see: `docs/core-opnet-address-systems-airdrop-pattern.md`
+For complete implementation details, see: `how-to/airdrops.md`
 
 ---
 
@@ -308,10 +314,10 @@ const contract = new ethers.Contract(addr, abi, signer);
 ### OPNet Model
 ```typescript
 // OPNet: wallet context, FOUR identity values
-// Uses @btc-vision/walletconnect
+// Uses @btc-vision/opwallet + @btc-vision/walletconnect
 const { walletAddress, publicKey, hashedMLDSAKey, mldsaPublicKey } = useWalletConnect();
 // Read operations use JSONRpcProvider (separate from wallet)
-const provider = new JSONRpcProvider(rpcUrl, network);
+const provider = new JSONRpcProvider({ url: rpcUrl, network });
 // Contract instantiation needs 5 params
 const contract = getContract<TokenABI>(contractAddress, abi, provider, network, senderAddress);
 ```
@@ -335,7 +341,7 @@ const contract = getContract<TokenABI>(contractAddress, abi, provider, network, 
 - **ML-DSA signing is OP_WALLET only** -- UniSat and other Bitcoin wallets do not support ML-DSA signatures. OP_WALLET is the only wallet with full OPNet support.
 - **Four identity values** -- Ethereum gives you one address. OPNet wallet provides four: `walletAddress` (Bitcoin), `publicKey` (Schnorr), `hashedMLDSAKey` (ML-DSA hash), `mldsaPublicKey` (full ML-DSA public key).
 
-For full wallet integration details, see: `docs/clients-walletconnect-README.md` and `docs/clients-walletconnect-wallet-integration.md`
+For full wallet integration details, see: `docs/walletconnect/README.md` and `docs/walletconnect/wallet-integration.md`
 
 ---
 
@@ -509,7 +515,7 @@ public override onDeployment(_calldata: Calldata): void {
 2. Bitcoin transfers are irreversible (even if contract state reverts)
 3. Bitcoin's 10-minute block time creates front-running windows that don't exist on Ethereum's ~12-second blocks
 
-For full NativeSwap architecture, see: SKILL.md "NativeSwap: How to Build a Real DEX on Bitcoin" section and `docs/core-opnet-examples-advanced-swaps.md`
+For full NativeSwap architecture, see: SKILL.md "NativeSwap: How to Build a Real DEX on Bitcoin" section and `docs/opnet/examples/advanced-swaps.md`
 
 ---
 
@@ -523,7 +529,8 @@ For full NativeSwap architecture, see: SKILL.md "NativeSwap: How to Build a Real
 | Zero address | `address(0)` | `Address.zero()` |
 | Burn address | `0x...dEaD` | `ExtendedAddress.dead()` |
 | Verify signature | `ecrecover(h,v,r,s)` | `Blockchain.verifySignature(addr, sig, hash)` |
-| ECDSA (deprecated) | `ecrecover(h,v,r,s)` | `Blockchain.verifyECDSASignature(pubkey, sig, hash)` |
+| ECDSA (deprecated) | `ecrecover(h,v,r,s)` | `Blockchain.verifyECDSASignature(pubkey, sig, hash)` (native VM support, but DEPRECATED) |
+| Keccak-256 hash | `keccak256(data)` | Natively supported in VM (but prefer SHA-256 for new code) |
 | Token standard | ERC-20 | OP-20 (OIP-0020) |
 | NFT standard | ERC-721 | OP-721 (OIP-0721) |
 | Safe math | Default checked (0.8+) | `SafeMath.add/sub/mul/div` (mandatory) |
@@ -550,16 +557,16 @@ For detailed implementation of each concept, refer to these skill docs:
 
 | Topic | Primary Doc |
 |-------|-------------|
-| Address types | `docs/contracts-btc-runtime-types-address.md` |
-| Signature verification | `docs/contracts-btc-runtime-advanced-signature-verification.md` |
-| Quantum migration | `docs/core-transaction-quantum-support-README.md` |
-| OP-20 ABI | `docs/core-opnet-abi-reference-op20-abi.md` |
-| OP-721 ABI | `docs/core-opnet-abi-reference-op721-abi.md` |
-| Airdrop pattern | `docs/core-opnet-address-systems-airdrop-pattern.md` |
-| Wallet integration | `docs/clients-walletconnect-README.md` |
-| Sending transactions | `docs/core-opnet-contracts-sending-transactions.md` |
-| Simulating calls | `docs/core-opnet-contracts-simulating-calls.md` |
-| Storage system | `docs/contracts-btc-runtime-core-concepts-storage-system.md` |
-| Decorators/Events | `docs/contracts-btc-runtime-core-concepts-decorators.md` |
+| Address types | `docs/btc-runtime/types/address.md` |
+| Signature verification | `docs/btc-runtime/advanced/signature-verification.md` |
+| Quantum migration | `docs/transaction/quantum-support/README.md` |
+| OP-20 ABI | `docs/opnet/abi-reference/op20-abi.md` |
+| OP-721 ABI | `docs/opnet/abi-reference/op721-abi.md` |
+| Airdrop pattern | `how-to/airdrops.md` |
+| Wallet integration | `docs/walletconnect/README.md` |
+| Sending transactions | `docs/opnet/contracts/sending-transactions.md` |
+| Simulating calls | `docs/opnet/contracts/simulating-calls.md` |
+| Storage system | `docs/btc-runtime/core-concepts/storage-system.md` |
+| Decorators/Events | `docs/btc-runtime/core-concepts/decorators.md` |
 | NativeSwap/DEX | SKILL.md "NativeSwap" section |
-| Security patterns | `docs/contracts-btc-runtime-core-concepts-security.md` |
+| Security patterns | `docs/btc-runtime/core-concepts/security.md` |

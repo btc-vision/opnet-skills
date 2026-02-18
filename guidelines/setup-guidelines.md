@@ -12,7 +12,7 @@ This document covers package versions, configurations, and project setup for ALL
 
 **BEFORE WRITING ANY CODE, YOU MUST READ AND FOLLOW:**
 
-**`docs/core-typescript-law-CompleteLaw.md`**
+**`docs/typescript-law/CompleteLaw.md`**
 
 **The TypeScript Law is NON-NEGOTIABLE.** It defines strict rules for type safety, code quality, and security. Every line of code must comply. Violations lead to exploitable, broken code that will be rejected.
 
@@ -53,26 +53,58 @@ This document covers package versions, configurations, and project setup for ALL
 
 **ALWAYS run the appropriate command after creating any project. This is NON-NEGOTIABLE.**
 
-#### For Non-Contract Projects (Frontend, Backend, Plugins, Tests)
+#### For Backend / Frontend / Plugins
 
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+rm -rf node_modules package-lock.json
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc --prefer-online
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
 ```
 
 #### For Contract Projects (AssemblyScript)
 
+**IMPORTANT: You MUST uninstall the upstream `assemblyscript` package first.** OPNet uses a custom fork (`@btc-vision/assemblyscript`) with closure support. Having both installed causes build failures.
+
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/opnet-transform@1.1.0 @btc-vision/assemblyscript@^0.29.2 @btc-vision/as-bignum@0.1.2 @btc-vision/btc-runtime@rc --prefer-online
+rm -rf node_modules package-lock.json
+npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/btc-runtime@rc @btc-vision/as-bignum@latest @btc-vision/assemblyscript @btc-vision/opnet-transform@latest @assemblyscript/loader@latest --prefer-online
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
+```
+
+#### For Unit Test Projects
+
+```bash
+rm -rf node_modules package-lock.json
+npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc @btc-vision/op-vm@rc @btc-vision/unit-test-framework@beta --prefer-online
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
 ```
 
 **These commands update ALL dependencies to latest, then pin the OPNet-specific packages to their correct versions. Never skip this step.**
+
+### CRITICAL: Buffer is REMOVED
+
+**`Buffer` is completely removed from the OPNet stack.** All code must use `Uint8Array` instead. For hex string conversions, use `BufferHelper` from `@btc-vision/transaction`:
+
+```typescript
+import { BufferHelper } from '@btc-vision/transaction';
+
+// Convert hex string to Uint8Array
+const bytes: Uint8Array = BufferHelper.fromHex('deadbeef');
+
+// Convert Uint8Array to hex string
+const hex: string = BufferHelper.toHex(bytes);
+```
+
+**Do NOT use `Buffer.from()`, `Buffer.alloc()`, or any Buffer API.** They will not work.
 
 ### Package Version Reference
 
 | Package | Version | Used In |
 |---------|---------|---------|
-| `eslint` | `^9.39.2` | All projects |
-| `@eslint/js` | `^9.39.2` | All projects |
+| `eslint` | `^10.0.0` | All projects |
+| `@eslint/js` | `^10.0.1` | All projects |
 | `@btc-vision/bitcoin` | `@rc` | Frontend, Backend, Plugins, Tests |
 | `@btc-vision/transaction` | `@rc` | Frontend, Backend, Plugins, Tests |
 | `opnet` | `@rc` | Frontend, Backend, Plugins, Tests |
@@ -94,8 +126,8 @@ npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/
     "devDependencies": {
         "@btc-vision/assemblyscript": "^0.29.2",
         "@btc-vision/opnet-transform": "1.1.0",
-        "eslint": "^9.39.2",
-        "@eslint/js": "^9.39.2"
+        "eslint": "^10.0.0",
+        "@eslint/js": "^10.0.1"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"
@@ -119,8 +151,8 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
         "ts-node": "latest",
         "gulp": "latest",
         "@types/node": "latest",
-        "eslint": "^9.39.2",
-        "@eslint/js": "^9.39.2"
+        "eslint": "^10.0.0",
+        "@eslint/js": "^10.0.1"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"
@@ -150,8 +182,8 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
         "@types/react": "latest",
         "@types/react-dom": "latest",
         "@types/node": "latest",
-        "eslint": "^9.39.2",
-        "@eslint/js": "^9.39.2",
+        "eslint": "^10.0.0",
+        "@eslint/js": "^10.0.1",
         "@typescript-eslint/eslint-plugin": "latest",
         "@typescript-eslint/parser": "latest",
         "eslint-plugin-react": "latest",
@@ -165,7 +197,7 @@ Unit tests are **TypeScript** (NOT AssemblyScript). They have a SEPARATE package
 }
 ```
 
-**Always run the mandatory install command above after `npm install`.** The `@rc` tags ensure you get the latest release candidate of OPNet packages. `eslint` and `@eslint/js` are pinned to `^9.39.2`.
+**Always run the mandatory install command above after `npm install`.** The `@rc` tags ensure you get the latest release candidate of OPNet packages. `eslint` and `@eslint/js` are pinned to `^10.0.0` / `^10.0.1`.
 
 ---
 
@@ -559,7 +591,7 @@ public async transfer(to: Address, amount: bigint): Promise<boolean> {
 |------------------|------------------|
 | Array lengths | Satoshi amounts |
 | Loop counters | Block heights |
-| Small flags | Database IDs |
+| Small flags | Timestamps |
 | Ports, pixels | Token amounts |
 | | File sizes |
 
@@ -588,17 +620,19 @@ public async transfer(to: Address, amount: bigint): Promise<boolean> {
 
 ## ESLint Configuration
 
+All configs use ESLint 10 flat config format (`eslint.config.js`). Copy from the skill's `docs/` directory.
+
 ### For Contracts (AssemblyScript)
 
-Use `docs/eslint-contract.json` from opnet-skills.
+Copy `docs/eslint-contract.js` as `eslint.config.js` in your project root.
 
-### For Unit Tests (TypeScript)
+### For Backend / Unit Tests / Plugins (TypeScript)
 
-Use `docs/eslint-generic.json` from opnet-skills.
+Copy `docs/eslint-generic.js` as `eslint.config.js` in your project root.
 
 ### For Frontend (React)
 
-Use `docs/eslint-react.json` from opnet-skills.
+Copy `docs/eslint-react.js` as `eslint.config.js` in your project root.
 
 **Key rules (all configs):**
 - `@typescript-eslint/no-explicit-any`: "error"

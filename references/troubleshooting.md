@@ -104,7 +104,7 @@ Common errors, causes, and fixes for OPNet development.
 
 ### Error: CSV address generation fails
 **Cause:** Wrong pubkey format or missing CSV delay.
-**Fix:** Use `Address.fromString(pubkey).toCSV(1n)` with the **original untweaked** public key.
+**Fix:** Use `Address.fromString(hashedMLDSAKey, publicKey).toCSV(1n)` with the hashed ML-DSA key and tweaked public key.
 
 ### Error: `setTransactionDetails()` required before simulation
 **Cause:** NativeSwap simulation needs transaction context.
@@ -128,6 +128,46 @@ Common errors, causes, and fixes for OPNet development.
 
 ---
 
+## Buffer→Uint8Array Migration Issues
+
+### Error: `Buffer is not defined` / `Cannot find name 'Buffer'`
+**Cause:** Buffer has been removed from the entire OPNet stack. All packages now use Uint8Array.
+**Fix:** Replace all Buffer usage with Uint8Array. Use `BufferHelper` from `@btc-vision/transaction` for hex conversions. Use `TextEncoder`/`TextDecoder` for string encoding.
+
+### Error: `Buffer.from is not a function`
+**Cause:** Same as above - Buffer is gone from OPNet packages.
+**Fix:** Replace `Buffer.from(hex, 'hex')` with `BufferHelper.hexToUint8Array(hex)` from `@btc-vision/transaction`. Replace `Buffer.from(str)` with `new TextEncoder().encode(str)`.
+
+---
+
+## AssemblyScript Fork Issues
+
+### Error: `Duplicate asc binary` / `Cannot find module 'assemblyscript'`
+**Cause:** Both `assemblyscript` and `@btc-vision/assemblyscript` are installed, or wrong one is installed.
+**Fix:** Run `npm uninstall assemblyscript` first, then `npm i @btc-vision/assemblyscript@^0.29.2`. The fork is required for closure support.
+
+### Error: `Closures are not supported`
+**Cause:** Using upstream `assemblyscript` instead of the custom fork.
+**Fix:** `npm uninstall assemblyscript && npm i @btc-vision/assemblyscript@^0.29.2`
+
+---
+
+## WalletConnect v2 Issues
+
+### Error: `openConnectModal is not a function` / `connectToWallet undefined`
+**Cause:** Using old WalletConnect v1 API. The v2 API has different method names.
+**Fix:** Update to `@btc-vision/walletconnect` latest and use the new API. See `docs/walletconnect/README.md`.
+
+---
+
+## P2MR Address Issues
+
+### Error: `Unknown address type` when handling P2MR addresses
+**Cause:** Code doesn't handle the new P2MR (BIP-360) address format.
+**Fix:** Update address handling to support P2MR alongside P2TR/P2WPKH. See `docs/bitcoin/p2mr.md`.
+
+---
+
 ## General Tips
 
 - **Always use `optimize: false`** when calling `getUTXOs()` -- `optimize: true` filters out UTXOs
@@ -135,3 +175,7 @@ Common errors, causes, and fixes for OPNet development.
 - **Never use `while` loops in contracts** -- bounded `for` only
 - **Always simulate before sending** -- never skip simulation step
 - **Check `guidelines/setup-guidelines.md` for package versions** -- never guess
+- **Never use Buffer** -- always Uint8Array (Buffer is removed from the stack)
+- **Always `npm uninstall assemblyscript`** before installing `@btc-vision/assemblyscript`
+- **Use MongoDB** for backend persistence, not file-based storage
+- **Use `@btc-vision/hyper-express`** for backends, never Express/Fastify/Koa

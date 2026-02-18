@@ -7,9 +7,9 @@ This folder contains shared configuration templates for OPNet projects. Copy the
 | File | Use For | Copy To |
 |------|---------|---------|
 | `.prettierrc` | All OPNet projects | Project root |
-| `eslint-contract.json` | Smart contracts (btc-runtime) | `.eslintrc.json` |
-| `eslint-generic.json` | TypeScript libs (opnet, transaction) | `.eslintrc.json` |
-| `eslint-react.json` | React/Next.js frontends | `.eslintrc.json` |
+| `eslint-contract.js` | Smart contracts (btc-runtime) | `eslint.config.js` |
+| `eslint-generic.js` | TypeScript libs / backends / plugins | `eslint.config.js` |
+| `eslint-react.js` | React/Next.js frontends | `eslint.config.js` |
 | `tsconfig-generic.json` | TypeScript projects (NOT contracts) | `tsconfig.json` |
 | `asconfig.json` | AssemblyScript contracts | Project root |
 
@@ -19,27 +19,28 @@ This folder contains shared configuration templates for OPNet projects. Copy the
 
 ```bash
 cp setup/.prettierrc .prettierrc
-cp setup/eslint-contract.json .eslintrc.json
+cp setup/eslint-contract.js eslint.config.js
 cp setup/asconfig.json asconfig.json
 ```
 
-### TypeScript Library (opnet, transaction, bitcoin)
+### TypeScript Library / Backend / Plugin
 
 ```bash
 cp setup/.prettierrc .prettierrc
-cp setup/eslint-generic.json .eslintrc.json
+cp setup/eslint-generic.js eslint.config.js
 cp setup/tsconfig-generic.json tsconfig.json
 ```
 
-### React/Next.js Frontend (motoswap-ui)
+### React/Next.js Frontend
 
 ```bash
 cp setup/.prettierrc .prettierrc
-cp setup/eslint-react.json .eslintrc.json
+cp setup/eslint-react.js eslint.config.js
 ```
 
 ## Notes
 
 - **Contracts**: Use `asconfig.json` for AssemblyScript. Do NOT use `tsconfig-generic.json` for contracts.
-- **ESLint**: Rename the eslint file to `.eslintrc.json` when copying.
+- **ESLint**: Uses ESLint 10 flat config format. Copy as `eslint.config.js` (NOT `.eslintrc.json`).
 - **All configs**: Use ESNext target and strict TypeScript settings.
+- **Dependencies**: Install `eslint @eslint/js typescript-eslint` as devDependencies. For React, also install `eslint-plugin-react-hooks eslint-plugin-react-refresh`.

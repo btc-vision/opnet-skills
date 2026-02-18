@@ -44,18 +44,9 @@ export function advanceBlocks(count: number): void {
 }
 
 /**
- * Set block number directly (preferred over timestamp for time-dependent tests).
- * Block numbers are tamper-proof; timestamps are miner-manipulable on Bitcoin.
- */
-export function setBlockNumber(blockNumber: number): void {
-    Blockchain.setBlockNumber(blockNumber);
-}
-
-/**
  * Test configuration
  */
 export const TEST_CONFIG = {
     DEFAULT_GAS_LIMIT: 100_000_000_000_000n,
     DEFAULT_DECIMALS: 18,
-    ZERO_ADDRESS: '0x0000000000000000000000000000000000000000',
 };

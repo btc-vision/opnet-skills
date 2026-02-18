@@ -82,15 +82,9 @@ export function useWallet() {
     const isConnected = walletConnect.address !== null;
 
     return {
-        /** Bech32 Bitcoin address (bc1q.../bc1p...) - use for display and refundTo only */
         address: walletConnect.walletAddress,
-        /** Address object from walletconnect */
         addressObject: walletConnect.address,
-        /** Bitcoin tweaked public key (0x hex, 33 bytes compressed) - for Address.fromString() second param */
         publicKey: walletConnect.publicKey,
-        /** 32-byte SHA256 hash of ML-DSA public key (0x hex) - for Address.fromString() first param */
-        hashedMLDSAKey: walletConnect.hashedMLDSAKey,
-        /** Raw ML-DSA public key (~2500 bytes) - for signing/verification ONLY, NOT for Address.fromString() */
         mldsaPublicKey: walletConnect.mldsaPublicKey,
         isConnected,
         isConnecting: walletConnect.connecting,

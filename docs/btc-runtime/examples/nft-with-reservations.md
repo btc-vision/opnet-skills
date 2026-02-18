@@ -1,19 +1,19 @@
 # NFT with Reservations Example
 
-An advanced OP721 NFT collection with block-based reservations, whitelist minting, and reveal mechanics.
+An advanced OP721 NFT collection with time-based reservations, whitelist minting, and reveal mechanics.
 
 ## Overview
 
 This example demonstrates:
 - OP721 NFT implementation
-- Block-based reservation system
+- Time-based reservation system
 - Whitelist/allowlist minting
 - Reveal mechanism
 - Multiple sale phases
 - Collection metadata
 - Decorators for ABI generation
 
-> **CRITICAL: Never use `medianTimestamp` for time-dependent contract logic.** Bitcoin's Median Time Past (MTP) can be manipulated by miners within a +/- 2 hour window. Always use `Blockchain.block.numberU64` (block height) which is strictly monotonic and tamper-proof. Block time conversions: 1 block = ~10 min, 6 blocks = ~1 hour, 144 blocks = ~1 day, 52,560 blocks = ~1 year.
+> **CRITICAL: Never use `medianTimestamp` for time-dependent contract logic.** Bitcoin's Median Time Past (MTP) can be manipulated by miners within a +/- 2 hour window. Always use `Blockchain.block.number` (block height) which is strictly monotonic and tamper-proof. The actual btc-runtime contracts (OP20, OP721, OP20S, Upgradeable) ALL use `block.number` for deadlines.
 
 ## Sale Phase States
 
@@ -212,8 +212,8 @@ public reserve(calldata: Calldata): BytesWriter {
     const quantity = calldata.readU256();
     const sender = Blockchain.tx.sender;
 
-    // Check reservation is active (block height is manipulation-resistant, unlike timestamps)
-    const currentBlock = u256.fromU64(Blockchain.block.numberU64);
+    // Check reservation is active
+    const currentBlock: u256 = Blockchain.block.numberU256;
     if (currentBlock >= this._reservationEnd.value) {
         throw new Revert('Reservation period ended');
     }
@@ -520,9 +520,9 @@ export class NFTWithReservations extends OP721 {
         const quantity = calldata.readU256();
         const sender = Blockchain.tx.sender;
 
-        // Check reservation is active (block height is manipulation-resistant, unlike timestamps)
-        const currentBlock = u256.fromU64(Blockchain.block.numberU64);
-        if (currentBlock >= this._reservationEnd.value) {
+        // Check reservation is active
+        const currentBlock: u256 = Blockchain.block.numberU256;
+        if (now >= this._reservationEnd.value) {
             throw new Revert('Reservation period ended');
         }
 
@@ -549,8 +549,8 @@ export class NFTWithReservations extends OP721 {
     public claimReserved(_calldata: Calldata): BytesWriter {
         const sender = Blockchain.tx.sender;
 
-        // Check reservation period ended (block height is manipulation-resistant, unlike timestamps)
-        const currentBlock = u256.fromU64(Blockchain.block.numberU64);
+        // Check reservation period ended
+        const currentBlock: u256 = Blockchain.block.numberU256;
         if (currentBlock < this._reservationEnd.value) {
             throw new Revert('Reservation period not ended');
         }
@@ -585,9 +585,9 @@ export class NFTWithReservations extends OP721 {
     public cancelReservation(_calldata: Calldata): BytesWriter {
         const sender = Blockchain.tx.sender;
 
-        // Must be during reservation period (block height is manipulation-resistant, unlike timestamps)
-        const currentBlock = u256.fromU64(Blockchain.block.numberU64);
-        if (currentBlock >= this._reservationEnd.value) {
+        // Must be during reservation period
+        const currentBlock: u256 = Blockchain.block.numberU256;
+        if (now >= this._reservationEnd.value) {
             throw new Revert('Reservation period ended');
         }
 
@@ -698,15 +698,14 @@ export class NFTWithReservations extends OP721 {
 
     // ============ ADMIN FUNCTIONS ============
 
-    @method({ name: 'durationBlocks', type: ABIDataTypes.UINT64 })
+    @method({ name: 'duration', type: ABIDataTypes.UINT64 })
     @returns({ name: 'success', type: ABIDataTypes.BOOL })
     @emit('ReservationStarted')
     public startReservation(calldata: Calldata): BytesWriter {
         this.onlyDeployer(Blockchain.tx.sender);
 
-        // Duration in blocks (1 block ≈ 10 min, 144 blocks ≈ 1 day)
         const durationBlocks = calldata.readU64();
-        const endBlock = Blockchain.block.numberU64 + durationBlocks;
+        const endBlock = Blockchain.block.number + durationBlocks;
 
         this._reservationEnd.value = u256.fromU64(endBlock);
 
@@ -888,10 +887,8 @@ if (this._salePhase.value != PHASE_WHITELIST) { }
 ### Use u256 for Block Numbers When Comparing
 
 ```typescript
-// Good: Convert block number to u256 for comparison with u256 storage values
-// IMPORTANT: Use block.numberU64 (block height), NOT medianTimestamp.
-// Bitcoin miners can manipulate timestamps within ~2 hours.
-const currentBlock = u256.fromU64(Blockchain.block.numberU64);
+// Good: Use Blockchain.block.numberU256 for comparison with u256 values
+const currentBlock: u256 = Blockchain.block.numberU256;
 if (currentBlock >= this._reservationEnd.value) { }
 ```
 
@@ -918,7 +915,7 @@ public getSaleInfo(_calldata: Calldata): BytesWriter { }
 | Inheritance | `contract NFT is ERC721, Ownable` | `class NFT extends OP721` |
 | Constructor | `constructor() ERC721("Name", "SYM")` | `onDeployment()` + `this.instantiate(...)` |
 | Mint | `_safeMint(to, tokenId)` | `this._mint(to, tokenId)` |
-| Block Height | `block.timestamp` | `Blockchain.block.numberU64` (use block height, NOT medianTimestamp -- miners can manipulate timestamps within ~2 hours) |
+| Timing | `block.timestamp` | `Blockchain.block.number` (use block height, NOT medianTimestamp -- miners can manipulate MTP) |
 | Whitelist Storage | `mapping(address => bool)` | `AddressMemoryMap` |
 
 For detailed OP721 API documentation, see [OP721 Contract](../contracts/op721-nft.md).
@@ -1070,7 +1067,7 @@ if (this._salePhase.value != PHASE_WHITELIST) {
 
 | Feature | Benefit |
 |---------|---------|
-| **Bitcoin Block Height** | Uses `Blockchain.block.numberU64` for manipulation-resistant timing (miners can manipulate timestamps within ~2 hours) |
+| **Bitcoin Block Height** | Uses `block.number` for tamper-proof timing (NOT medianTimestamp) |
 | **Native u256** | First-class 256-bit integer support |
 | **Explicit Storage** | Direct control over storage layout with pointers |
 | **Single Inheritance** | Avoids ERC721's multiple inheritance complexity |
@@ -1153,8 +1150,7 @@ function cancelReservation() external {
 public cancelReservation(_calldata: Calldata): BytesWriter {
     const sender = Blockchain.tx.sender;
 
-    // Block height is manipulation-resistant, unlike timestamps
-    const currentBlock = u256.fromU64(Blockchain.block.numberU64);
+    const currentBlock: u256 = Blockchain.block.numberU256;
     if (currentBlock >= this._reservationEnd.value) {
         throw new Revert('Reservation period ended');
     }

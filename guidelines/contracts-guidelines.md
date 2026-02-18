@@ -24,7 +24,7 @@ This document covers contract code patterns, storage, SafeMath, and common mista
 
 **BEFORE WRITING ANY CONTRACT CODE, YOU MUST READ AND FOLLOW:**
 
-`docs/core-typescript-law-CompleteLaw.md`
+`docs/typescript-law/CompleteLaw.md`
 
 **The TypeScript Law is NON-NEGOTIABLE.** Every line of code must comply. Violations lead to exploitable, broken code.
 
@@ -49,26 +49,26 @@ This document covers contract code patterns, storage, SafeMath, and common mista
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules (applies to AssemblyScript too) |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules (applies to AssemblyScript too) |
 | 2 | `guidelines/setup-guidelines.md` | Package versions, asconfig.json |
 | 3 | `guidelines/contracts-guidelines.md` | This file - summary of patterns |
-| 4 | `docs/contracts-btc-runtime-README.md` | Runtime overview |
-| 5 | `docs/contracts-btc-runtime-getting-started-installation.md` | Setup |
-| 6 | `docs/contracts-btc-runtime-getting-started-first-contract.md` | Entry point, factory pattern |
-| 7 | `docs/contracts-btc-runtime-getting-started-project-structure.md` | Directory layout |
-| 8 | `docs/contracts-btc-runtime-core-concepts-storage-system.md` | Storage types, pointers |
-| 9 | `docs/contracts-btc-runtime-core-concepts-pointers.md` | Pointer allocation |
-| 10 | `docs/contracts-btc-runtime-api-reference-safe-math.md` | SafeMath (MANDATORY for u256) |
-| 11 | `docs/contracts-btc-runtime-gas-optimization.md` | Gas patterns, forbidden loops |
-| 12 | `docs/contracts-btc-runtime-core-concepts-security.md` | Security checklist |
+| 4 | `docs/btc-runtime/README.md` | Runtime overview |
+| 5 | `docs/btc-runtime/getting-started/installation.md` | Setup |
+| 6 | `docs/btc-runtime/getting-started/first-contract.md` | Entry point, factory pattern |
+| 7 | `docs/btc-runtime/getting-started/project-structure.md` | Directory layout |
+| 8 | `docs/btc-runtime/core-concepts/storage-system.md` | Storage types, pointers |
+| 9 | `docs/btc-runtime/core-concepts/pointers.md` | Pointer allocation |
+| 10 | `docs/btc-runtime/api-reference/safe-math.md` | SafeMath (MANDATORY for u256) |
+| 11 | `docs/btc-runtime/README.md` | Gas patterns, forbidden loops |
+| 12 | `docs/btc-runtime/core-concepts/security.md` | Security checklist |
 
 **For OP20 tokens, also read:**
-- `docs/contracts-btc-runtime-api-reference-op20.md`
-- `docs/contracts-btc-runtime-contracts-op20-token.md`
+- `docs/btc-runtime/api-reference/op20.md`
+- `docs/btc-runtime/contracts/op20-token.md`
 
 **For OP721 NFTs, also read:**
-- `docs/contracts-btc-runtime-api-reference-op721.md`
-- `docs/contracts-btc-runtime-contracts-op721-nft.md`
+- `docs/btc-runtime/api-reference/op721.md`
+- `docs/btc-runtime/contracts/op721-nft.md`
 
 **IF YOU SKIP THESE DOCS, YOUR CONTRACT WILL HAVE BUGS.**
 
@@ -160,9 +160,10 @@ export class MyToken extends OP20 {
 
 ### Method Decorators
 
+`@method`, `@returns`, `@emit`, `@final`, and `ABIDataTypes` are **compile-time globals** injected by `@btc-vision/opnet-transform`. Do NOT import them -- they are available automatically in all contract files.
+
 ```typescript
-import { method, returns } from '@btc-vision/btc-runtime/runtime';
-import { ABIDataTypes } from '@btc-vision/btc-runtime/runtime/universal/ABIDataTypes';
+// NO import needed for decorators or ABIDataTypes -- they are transform globals
 
 @method({ name: 'to', type: ABIDataTypes.ADDRESS }, { name: 'amount', type: ABIDataTypes.UINT256 })
 @returns({ type: ABIDataTypes.BOOL })
@@ -241,7 +242,7 @@ export class MyContract extends OP_NET {
 | `StoredU256` | Single u256 value | Total supply, deployment block |
 | `StoredBoolean` | Boolean flag | Mint closed, paused |
 | `StoredString` | String value | Name, symbol |
-| `StoredU64` | Single u64 value | Block numbers, counters |
+| `StoredU64` | Single u64 value | Block numbers, timestamps |
 | `AddressMemoryMap` | Address → value mapping | Balances, mints per address |
 | `StoredMapU256` | u256 → u256 mapping | Generic key-value |
 
@@ -355,11 +356,10 @@ import {
     encodeSelector,
     SafeMath,
     Revert,
-
-    // Decorators
-    method,
-    returns
 } from '@btc-vision/btc-runtime/runtime';
+
+// NOTE: @method, @returns, @emit, @final, and ABIDataTypes are compile-time
+// globals from @btc-vision/opnet-transform. Do NOT import them.
 ```
 
 ### From as-bignum
@@ -533,6 +533,79 @@ contract.deposit(btcAmount);  // Contracts don't hold BTC
 const outputs = Blockchain.tx.outputs;
 // Verify expected outputs are present in the transaction
 ```
+
+---
+
+## CRITICAL: Buffer is REMOVED
+
+**`Buffer` is completely removed from the OPNet AssemblyScript runtime.** All binary data uses `Uint8Array`. If you see any reference to `Buffer` in contract code, replace it with `Uint8Array`.
+
+---
+
+## CRITICAL: Uninstall Upstream AssemblyScript
+
+**Before installing `@btc-vision/assemblyscript`, you MUST uninstall the upstream `assemblyscript` package:**
+
+```bash
+npm uninstall assemblyscript
+```
+
+OPNet uses a custom fork (`@btc-vision/assemblyscript`) with closure support. Having both packages installed causes build failures and subtle runtime bugs.
+
+---
+
+## Upgradeable Contracts
+
+OPNet supports contract upgrades via the `Upgradeable` base class. To make a contract upgradeable:
+
+1. **Extend `Upgradeable` instead of `OP_NET`:**
+
+```typescript
+import { Upgradeable, Calldata } from '@btc-vision/btc-runtime/runtime';
+
+export class MyContract extends Upgradeable {
+    public constructor() {
+        super();
+    }
+
+    /**
+     * Called when the contract is upgraded to a new version.
+     * Use this to migrate storage, update pointers, or run one-time upgrade logic.
+     */
+    public override onUpdate(_oldVersion: u256, calldata: Calldata): void {
+        // Migration logic here
+    }
+}
+```
+
+2. **Implement `onUpdate()`:** This lifecycle method runs once when the contract is upgraded. Use it for storage migration, new pointer initialization, or version-specific logic.
+
+3. **Pointer stability is CRITICAL:** Storage pointer assignments MUST remain in the same order across versions. New pointers should be appended, never inserted between existing ones.
+
+For full details, see: `docs/btc-runtime/contracts/upgradeable.md` and `docs/btc-runtime/advanced/contract-upgrades.md`
+
+---
+
+## Constant and Payable ABI Methods
+
+The OPNet ABI now supports marking methods as `constant` (read-only) or `payable`:
+
+- **`constant`**: Method does not modify state. The VM validates this -- if a constant method attempts a state write, it reverts.
+- **`payable`**: Method can receive BTC value in the transaction. Non-payable methods reject transactions that include BTC value.
+
+These are enforced at the VM level, not just as documentation hints.
+
+---
+
+## ECDSA and Keccak-256 Support
+
+The OPNet VM now natively supports **ECDSA signature verification** and **Keccak-256 hashing**:
+
+- `Blockchain.verifyECDSASignature()` -- Verify secp256k1 ECDSA signatures
+- `Blockchain.verifyBitcoinECDSASignature()` -- Verify Bitcoin-style ECDSA signatures
+- Keccak-256 is available as a hashing primitive in the runtime
+
+**WARNING:** ECDSA is DEPRECATED and will stop working when the quantum-safe consensus flag is activated. Use `Blockchain.verifySignature()` with ML-DSA or Schnorr for new contracts.
 
 ---
 

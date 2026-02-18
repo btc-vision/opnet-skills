@@ -1,12 +1,8 @@
 import { Blockchain } from '@btc-vision/btc-runtime/runtime';
 import { revertOnError } from '@btc-vision/btc-runtime/runtime/abort/abort';
-
-// Change the import below to match your contract:
-// import { OP20Token } from './OP20Token';
-// import { MyContract } from './MyContract';
 import { OP721NFT } from './OP721NFT';
 
-// Contract factory - change the type and class to match your import above
+// Contract factory - DO NOT MODIFY
 Blockchain.contract = (): OP721NFT => {
     return new OP721NFT();
 };

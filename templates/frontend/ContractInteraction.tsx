@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Address } from 'opnet';
+import { useState, useEffect } from 'react';
 import { useOP20 } from '../hooks/useContract';
 import { useWallet } from '../hooks/useWallet';
-import { formatUnits } from 'opnet';
+import { BitcoinUtils } from 'opnet';
 
 interface ContractInteractionProps {
     contractAddress: string;
@@ -12,21 +11,11 @@ interface ContractInteractionProps {
  * ContractInteraction Component
  *
  * Example component for interacting with an OP20 token contract.
- * Demonstrates:
- * - Using .metadata() for efficient batch retrieval (1 RPC call)
- * - Proper Address.fromString(hashedMLDSAKey, publicKey) usage
- * - Correct wallet data access patterns
+ * Uses metadata() for a single RPC call instead of separate name/symbol/decimals/totalSupply calls.
  */
 export function ContractInteraction({ contractAddress }: ContractInteractionProps) {
-    const { hashedMLDSAKey, publicKey, isConnected } = useWallet();
-
-    /** Construct sender Address from wallet keys for contract interaction */
-    const senderAddress = useMemo(() => {
-        if (!hashedMLDSAKey || !publicKey) return undefined;
-        return Address.fromString(hashedMLDSAKey, publicKey);
-    }, [hashedMLDSAKey, publicKey]);
-
-    const { getMetadata, getBalanceOf, loading, error } = useOP20(contractAddress, senderAddress);
+    const { addressObject, isConnected } = useWallet();
+    const { getMetadata, getBalanceOf, loading, error } = useOP20(contractAddress);
 
     const [tokenInfo, setTokenInfo] = useState<{
         name: string | null;
@@ -42,9 +31,9 @@ export function ContractInteraction({ contractAddress }: ContractInteractionProp
 
     const [balance, setBalance] = useState<bigint | null>(null);
 
-    /** Load all token metadata in a single RPC call */
     useEffect(() => {
         const loadTokenInfo = async () => {
+            // Use metadata() for a single RPC call instead of 4 separate calls
             const metadata = await getMetadata();
             if (metadata) {
                 setTokenInfo({
@@ -59,11 +48,10 @@ export function ContractInteraction({ contractAddress }: ContractInteractionProp
         loadTokenInfo();
     }, [getMetadata]);
 
-    /** Load user balance when connected */
     useEffect(() => {
         const loadBalance = async () => {
-            if (isConnected && senderAddress) {
-                const bal = await getBalanceOf(senderAddress);
+            if (isConnected && addressObject) {
+                const bal = await getBalanceOf(addressObject);
                 setBalance(bal);
             } else {
                 setBalance(null);
@@ -71,11 +59,11 @@ export function ContractInteraction({ contractAddress }: ContractInteractionProp
         };
 
         loadBalance();
-    }, [isConnected, senderAddress, getBalanceOf]);
+    }, [isConnected, addressObject, getBalanceOf]);
 
     const formatBalance = (bal: bigint | null, decimals: number | null): string => {
         if (bal === null || decimals === null) return '0';
-        return formatUnits(bal, decimals);
+        return BitcoinUtils.formatUnits(bal, decimals);
     };
 
     return (

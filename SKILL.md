@@ -70,9 +70,9 @@ Workflow order:
 
 **Never build a frontend that references a contract that doesn't exist yet.**
 
-### 2. WALLET INTEGRATION: ALWAYS USE `@btc-vision/walletconnect`
+### 2. WALLET INTEGRATION: ALWAYS USE `@btc-vision/opwallet`
 
-**All OPNet websites MUST use `@btc-vision/walletconnect` for OP_WALLET integration.**
+**All OPNet websites MUST use `@btc-vision/opwallet` for OP_WALLET integration.**
 
 OP_WALLET is the official and ONLY wallet that fully supports OPNet features (MLDSA signatures, quantum-resistant keys, full OPNet integration). Every frontend dApp MUST integrate it.
 
@@ -121,17 +121,36 @@ These are real mistakes observed across multiple AI agents. **If you make any of
 
 | Mistake | Why It's Wrong | Correct Approach |
 |---------|---------------|-----------------|
+| Using `Blockchain.block.medianTimestamp` for time-dependent logic | Bitcoin's Median Time Past (MTP) can be **MANIPULATED BY MINERS** within a ±2 hour window. Using it for deadlines, staleness checks, or any time-dependent logic is a **CRITICAL SECURITY VULNERABILITY**. The actual btc-runtime contracts (OP20, OP721, OP20S, Upgradeable) ALL use `block.number`. | **ALWAYS use `Blockchain.block.number`** (block height) for ALL time-dependent logic. Block height is strictly monotonic and tamper-proof. For staleness: use block count (144 blocks ≈ 24h). For deadlines: use block number. For u256 comparisons: use `Blockchain.block.numberU256`. The `medianTimestamp` property EXISTS but must NEVER be used for logic — it is informational only. |
 | Using Keccak256 selectors (EVM style) | OPNet uses **SHA256**, not Keccak256. This is Bitcoin, not Ethereum. | Use SHA256 for all hashing and method selectors |
 | Calling `approve()` on OP-20 tokens | OP-20 does NOT have `approve()`. It uses `increaseAllowance()` / `decreaseAllowance()` to prevent the well-known approve race condition. | Use `increaseAllowance(spender, amount)` and `decreaseAllowance(spender, amount)` |
 | Passing `bc1p...` addresses to `Address.fromString()` | `Address.fromString()` takes TWO hex pubkey parameters, not a Bech32 address string | `Address.fromString(hashedMLDSAKey, tweakedPublicKey)` — both are hex strings |
 | Using `bitcoinjs-lib` | OPNet has its own Bitcoin library with critical patches and 709x faster PSBT | Use `@btc-vision/bitcoin` — never `bitcoinjs-lib` |
-| Using `medianTimestamp` / `medianTime` for time-based logic | **CRITICAL SECURITY VULNERABILITY.** Bitcoin miners can manipulate timestamps within a ~2 hour window. Median Time Past is NOT reliable for deadlines, expirations, or any time-sensitive contract logic. An attacker can exploit timestamp manipulation to bypass cooldowns, expire reservations early, or extend lock periods. | **ALWAYS use `Blockchain.block.numberU64` (block height)** for ALL time-dependent logic: expirations, cooldowns, vesting, staking duration, deadlines. Block numbers are deterministic and cannot be manipulated. Convert time requirements to block counts (1 block ≈ 10 minutes on Bitcoin). NEVER use `Blockchain.block.medianTimestamp` or `Blockchain.block.medianTime`. |
-| Factory-deploys-child-contract pattern | OPNet contracts cannot deploy other contracts. There is no `CREATE` or `CREATE2` opcode. | Deploy each contract separately, then link them via stored addresses |
+| Manually deploying child contracts from outside | There is no `CREATE`/`CREATE2` opcode in the traditional sense. However, `Blockchain.deployContractFromExisting(templateAddress, salt, calldata)` allows factory-style deployment from within a contract. | Use `Blockchain.deployContractFromExisting()` for factory patterns (deploys new instance from a template contract with deterministic addressing). Deploy the template separately first, then use the factory method. See `docs/btc-runtime/api-reference/blockchain.md`. |
 | Skipping simulation before `sendTransaction()` | Bitcoin transfers are **irreversible**. If the contract reverts, your BTC is gone. | ALWAYS simulate first: `contract.method()` to simulate, then `result.sendTransaction(params)` only after confirming success |
 | Using Express/Fastify/Koa for backends | These frameworks are **forbidden**. They are significantly slower. | Use `@btc-vision/hyper-express` and `@btc-vision/uwebsocket.js` only |
-| Not running `npm-check-updates` after setup | Package versions drift constantly. Stale versions = build failures. | ALWAYS run `npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 ...` (see Install Commands section) |
+| Not running `npm-check-updates` after setup | Package versions drift constantly. Stale versions = build failures. | ALWAYS run `rm -rf node_modules package-lock.json && npx npm-check-updates -u && npm i ...` (see Install Commands section) |
 | Giving users `verifyECDSASignature` or `verifySchnorrSignature` without deprecation warning | Both ECDSA and Schnorr are **DEPRECATED**. ECDSA is gated behind `UNSAFE_QUANTUM_SIGNATURES_ALLOWED` and will break when consensus flips the flag. Schnorr is also deprecated but still works through the safe `verifySignature` path. Handing users the direct deprecated methods without warning sets them up for contract failure. | **ALWAYS warn first**: ECDSA and Schnorr are deprecated. Show `Blockchain.verifySignature(address, signature, hash)` as the ONLY correct approach — it is consensus-aware and auto-selects the right algorithm (Schnorr today, ML-DSA when enforced). NEVER point users to `verifyECDSASignature`, `verifyBitcoinECDSASignature`, or `verifySchnorrSignature` directly. Read `guidelines/ethereum-migration-guidelines.md` Section 3. |
 | Using `MessageSigner.signMessage()` or `signMLDSAMessage()` instead of Auto methods | The non-Auto methods are environment-specific. `signMessage()` only works with local keypairs (backend), `signMLDSAMessage()` only works with OP_WALLET (browser). Using the wrong one = runtime crash. | **ALWAYS use Auto methods**: `MessageSigner.signMessageAuto()`, `tweakAndSignMessageAuto()`, `signMLDSAMessageAuto()`. These auto-detect whether you're in browser (OP_WALLET) or backend (local keypair) and call the right underlying method. NEVER use the non-Auto variants unless you have an explicit reason and know your environment. |
+| Using `Buffer` anywhere in code | `Buffer` is **REMOVED** from the entire OPNet stack. It no longer exists. Using Buffer will cause build/runtime failures. | Use `Uint8Array` everywhere. For hex conversions use `fromHex()`/`toHex()` from `@btc-vision/bitcoin`. For encoding use `TextEncoder`/`TextDecoder`. |
+| Using `assemblyscript` instead of `@btc-vision/assemblyscript` | The upstream `assemblyscript` package does NOT support closures and is incompatible with OPNet. | `npm uninstall assemblyscript && npm i @btc-vision/assemblyscript@^0.29.2`. The custom fork adds closure support required by btc-runtime. |
+| Not uninstalling `assemblyscript` before installing fork | Both packages provide the `asc` binary. Having both installed causes version conflicts and build failures. | Always `npm uninstall assemblyscript` FIRST, then install `@btc-vision/assemblyscript`. |
+| Making single-threaded backend APIs | Single-threaded Node.js APIs cannot handle concurrent OPNet requests efficiently. This is a hard requirement. | Use Worker threads for CPU-bound work. Use `@btc-vision/hyper-express` which supports threading natively. See `docs/opnet/providers/threaded-http.md`. |
+| Not using MongoDB for persistence | File-based or in-memory storage doesn't scale for OPNet indexing/backend data. | Use MongoDB for all backend persistence needs. It handles the document structure OPNet data naturally maps to. |
+| Missing P2MR (BIP-360) address handling | P2MR is a new address type for quantum-resistant addresses. Ignoring it breaks compatibility with quantum wallets. | Handle P2MR addresses alongside P2TR/P2WPKH. See `docs/bitcoin/p2mr.md` and `docs/transaction/addresses/P2WDA.md`. |
+| Using old WalletConnect v1 API | WalletConnect v1 is deprecated. The API has changed significantly in v2. | Use WalletConnect v2 API from `@btc-vision/walletconnect`. See `docs/walletconnect/README.md` for the updated API. |
+| Manually checking address prefixes (startsWith) | Fragile, misses P2MR, P2OP, P2WSH, P2WDA types. Will break as new address types are added. | Use `AddressVerificator.detectAddressType()` from `@btc-vision/transaction`. See `docs/transaction/keypair/address-verificator.md`. |
+| Importing `ABIDataTypes` or decorators (`@method`, `@returns`, `@emit`, `@final`) in contract code | These are **compile-time globals** injected by `@btc-vision/opnet-transform`. They are NOT exports from `@btc-vision/btc-runtime/runtime`. Importing them will cause build failures. | Do NOT import them. Just use `ABIDataTypes.ADDRESS`, `@method(...)`, etc. directly in contract files -- the transform provides them automatically. |
+| Calling `name()` or `symbol()` on OP20 test class | The unit-test-framework's built-in `OP20` class has NO `name()` or `symbol()` methods (those exist on `OP721`). | Use `const { metadata } = await token.metadata()` to get name, symbol, decimals, totalSupply, maximumSupply, icon, domainSeparator. |
+| Using `Blockchain.setSender()` in tests | This method does NOT exist. | Use `Blockchain.msgSender = address` (property setter) or pass `sender` in execute params: `this.execute({ calldata, sender })`. Built-in OP20/OP721 methods set sender internally. |
+| Using `Networks` enum from `@btc-vision/bitcoin` | There is NO `Networks` enum. It does not exist. | Use `networks` (lowercase namespace): `networks.bitcoin`, `networks.regtest`, `networks.testnet`. Use `Network` (type) for typing. |
+| Using `OP20_ABI` (missing underscore) | The correct export name has an underscore between OP and 20. | Use `OP_20_ABI` from `opnet`. |
+| Calling `getContract()` with 3 args (missing network) | `getContract` requires 4 parameters. The 4th (`network`) is required. | `getContract<T>(address, abi, provider, network)` — always pass network as 4th arg. |
+| Calling `new JSONRpcProvider(url, network)` with 2 positional args | The constructor takes a single config object, NOT positional arguments. | `new JSONRpcProvider({ url: 'https://...', network: networks.bitcoin })` |
+| Missing `crypto-browserify` override in Vite `nodePolyfills` | Without this, signing operations fail in the browser. Also need `undici` alias for opnet's fetch. | Add `overrides: { crypto: 'crypto-browserify' }` to nodePolyfills, and `undici: resolve(__dirname, 'node_modules/opnet/src/fetch/fetch-browser.js')` to resolve.alias. |
+| Checking `transfer().properties.success` for OP-20 transfer result | The `Transfer` type returns `CallResult<{}>` — properties is an empty object `{}`. There is NO `success` boolean. | Check `result.revert === undefined` to determine if the transfer succeeded. |
+| Using `this.getSelector()` as if inherited from ContractRuntime | ContractRuntime does NOT provide a `getSelector()` method. It is not inherited. | Define your own: `private getSelector(sig: string): number { return Number(\`0x\${this.abiCoder.encodeSelector(sig)}\`); }` |
+| Making 4 separate RPC calls for name/symbol/decimals/totalSupply | Wasteful. 4 network round-trips instead of 1. | Use `contract.metadata()` which returns ALL token info (name, symbol, icon, decimals, totalSupply, domainSeparator) in a single call. |
 
 **If you catch yourself doing any of the above, STOP and fix it immediately.**
 
@@ -156,37 +175,44 @@ OPNet development has:
 
 | Order | File | Why |
 |-------|------|-----|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | **THE LAW** - Type system rules, forbidden constructs, required patterns |
+| 1 | `docs/typescript-law/CompleteLaw.md` | **THE LAW** - Type system rules, forbidden constructs, required patterns |
 | 2 | `guidelines/setup-guidelines.md` | Package versions, tsconfig, ESLint configs |
+| 3 | `docs/transaction/quantum-support/README.md` | Quantum resistance overview (ML-DSA, P2MR) |
 
 ---
 
 ### For Smart Contracts (AssemblyScript)
 
+**CRITICAL: You MUST `npm uninstall assemblyscript` BEFORE installing `@btc-vision/assemblyscript`. The upstream package conflicts with the custom fork.**
+
 **Read ALL of these BEFORE writing contract code:**
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules (applies to AS too) |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules (applies to AS too) |
 | 2 | `guidelines/setup-guidelines.md` | Package versions, asconfig.json |
 | 3 | `guidelines/contracts-guidelines.md` | Summary of contract patterns |
-| 4 | `docs/contracts-btc-runtime-README.md` | Runtime overview |
-| 5 | `docs/contracts-btc-runtime-getting-started-installation.md` | Setup |
-| 6 | `docs/contracts-btc-runtime-getting-started-first-contract.md` | Entry point, factory pattern |
-| 7 | `docs/contracts-btc-runtime-getting-started-project-structure.md` | Directory layout |
-| 8 | `docs/contracts-btc-runtime-core-concepts-storage-system.md` | Storage types, pointers |
-| 9 | `docs/contracts-btc-runtime-core-concepts-pointers.md` | Pointer allocation |
-| 10 | `docs/contracts-btc-runtime-api-reference-safe-math.md` | SafeMath (MANDATORY for u256) |
-| 11 | `docs/contracts-btc-runtime-gas-optimization.md` | Gas patterns, forbidden loops |
-| 12 | `docs/contracts-btc-runtime-core-concepts-security.md` | Security checklist |
+| 4 | `docs/btc-runtime/README.md` | Runtime overview |
+| 5 | `docs/btc-runtime/getting-started/installation.md` | Setup |
+| 6 | `docs/btc-runtime/getting-started/first-contract.md` | Entry point, factory pattern |
+| 7 | `docs/btc-runtime/getting-started/project-structure.md` | Directory layout |
+| 8 | `docs/btc-runtime/core-concepts/storage-system.md` | Storage types, pointers |
+| 9 | `docs/btc-runtime/core-concepts/pointers.md` | Pointer allocation |
+| 10 | `docs/btc-runtime/api-reference/safe-math.md` | SafeMath (MANDATORY for u256) |
+| 11 | `docs/btc-runtime/core-concepts/security.md` | Security checklist |
+| 12 | `docs/btc-runtime/core-concepts/decorators.md` | Decorators (@method, @returns, @emit) |
 
 **For OP20 tokens, also read:**
-- `docs/contracts-btc-runtime-api-reference-op20.md`
-- `docs/contracts-btc-runtime-contracts-op20-token.md`
+- `docs/btc-runtime/api-reference/op20.md`
+- `docs/btc-runtime/contracts/op20-token.md`
 
 **For OP721 NFTs, also read:**
-- `docs/contracts-btc-runtime-api-reference-op721.md`
-- `docs/contracts-btc-runtime-contracts-op721-nft.md`
+- `docs/btc-runtime/api-reference/op721.md`
+- `docs/btc-runtime/contracts/op721-nft.md`
+
+**For upgradeable contracts, also read:**
+- `docs/btc-runtime/contracts/upgradeable.md`
+- `docs/btc-runtime/advanced/contract-upgrades.md`
 
 ---
 
@@ -196,42 +222,47 @@ OPNet development has:
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules, forbidden constructs |
 | 2 | `guidelines/setup-guidelines.md` | Package versions, vite config |
 | 3 | `guidelines/frontend-guidelines.md` | Summary of frontend patterns |
-| 4 | `docs/core-opnet-README.md` | Client library overview |
-| 5 | `docs/core-opnet-getting-started-installation.md` | Installation |
-| 6 | `docs/core-opnet-getting-started-quick-start.md` | Quick start |
-| 7 | `docs/core-opnet-providers-json-rpc-provider.md` | Provider setup |
-| 8 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
-| 9 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
-| 10 | `docs/core-opnet-contracts-simulating-calls.md` | Read operations |
-| 11 | `docs/core-opnet-contracts-sending-transactions.md` | Write operations |
-| 12 | `docs/core-opnet-contracts-transaction-configuration.md` | Transaction options |
-| 13 | `docs/core-transaction-transaction-factory-interfaces.md` | **Advanced TX params (fees, notes, anchors)** |
-| 14 | `docs/clients-walletconnect-README.md` | Wallet connection |
-| 15 | `docs/frontend-motoswap-ui-README.md` | **THE STANDARD** - Reference implementation |
+| 4 | `docs/opnet/README.md` | Client library overview |
+| 5 | `docs/opnet/getting-started/installation.md` | Installation |
+| 6 | `docs/opnet/getting-started/quick-start.md` | Quick start |
+| 7 | `docs/opnet/providers/json-rpc-provider.md` | Provider setup |
+| 8 | `docs/opnet/providers/internal-caching.md` | Caching (MANDATORY) |
+| 9 | `docs/opnet/contracts/instantiating-contracts.md` | Contract instances |
+| 10 | `docs/opnet/contracts/simulating-calls.md` | Read operations |
+| 11 | `docs/opnet/contracts/sending-transactions.md` | Write operations |
+| 12 | `docs/opnet/contracts/transaction-configuration.md` | Transaction options |
+| 13 | `docs/transaction/transaction-building/transaction-factory-interfaces.md` | **Advanced TX params (fees, notes, anchors)** |
+| 14 | `docs/walletconnect/README.md` | Wallet connection (WalletConnect v2) |
+| 15 | `docs/bitcoin/p2mr.md` | P2MR (BIP-360) address support |
+| 16 | `docs/frontend-motoswap-ui-README.md` | **THE STANDARD** - Reference implementation |
 
 ---
 
 ### For Backend/API (Node.js)
 
+**CRITICAL: Backend APIs MUST use `@btc-vision/hyper-express` + `@btc-vision/uwebsockets.js` with threads. NEVER make single-threaded API implementations. Use MongoDB when database is needed.**
+
 **Read ALL of these BEFORE writing backend code:**
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules, forbidden constructs |
 | 2 | `guidelines/setup-guidelines.md` | Package versions |
 | 3 | `guidelines/backend-guidelines.md` | Summary of backend patterns |
-| 4 | `docs/core-opnet-backend-api.md` | **REQUIRED FRAMEWORKS** - hyper-express, uWebSockets.js |
-| 5 | `docs/core-opnet-providers-json-rpc-provider.md` | Provider setup |
-| 6 | `docs/core-opnet-providers-threaded-http.md` | Threading (MANDATORY) |
-| 7 | `docs/core-opnet-providers-internal-caching.md` | Caching (MANDATORY) |
-| 8 | `docs/core-opnet-contracts-instantiating-contracts.md` | Contract instances |
-| 9 | `docs/core-opnet-contracts-sending-transactions.md` | Sending transactions |
-| 10 | `docs/core-transaction-transaction-factory-interfaces.md` | **Advanced TX params (fees, notes, anchors)** |
+| 4 | `docs/opnet/providers/json-rpc-provider.md` | Provider setup |
+| 5 | `docs/opnet/providers/threaded-http.md` | Threading (MANDATORY) |
+| 6 | `docs/opnet/providers/internal-caching.md` | Caching (MANDATORY) |
+| 7 | `docs/opnet/contracts/instantiating-contracts.md` | Contract instances |
+| 8 | `docs/opnet/contracts/sending-transactions.md` | Sending transactions |
+| 9 | `docs/opnet/contracts/offline-signing.md` | Offline/air-gapped signing |
+| 10 | `docs/transaction/transaction-building/transaction-factory-interfaces.md` | **Advanced TX params (fees, notes, anchors)** |
+| 11 | `docs/transaction/offline/offline-transaction-signing.md` | Offline signing workflow |
 
-**FORBIDDEN FRAMEWORKS:** Express, Fastify, Koa, Hapi, Socket.io - use hyper-express and uWebSockets.js only.
+**FORBIDDEN FRAMEWORKS:** Express, Fastify, Koa, Hapi, Socket.io - use `@btc-vision/hyper-express` and `@btc-vision/uwebsockets.js` only.
+**FORBIDDEN:** Single-threaded API implementations. ALL backends MUST use Worker threads.
 
 ---
 
@@ -241,12 +272,12 @@ OPNet development has:
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules, forbidden constructs |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules, forbidden constructs |
 | 2 | `guidelines/setup-guidelines.md` | Package versions |
 | 3 | `guidelines/plugin-guidelines.md` | Summary of plugin patterns |
-| 4 | `docs/core-OIP-OIP-0003.md` | **PLUGIN SPECIFICATION** - Full spec |
-| 5 | `docs/plugins-plugin-sdk-README.md` | SDK reference |
-| 6 | `docs/plugins-opnet-node-README.md` | Node integration |
+| 4 | `docs/OIP/OIP/OIP-0003.md` | **PLUGIN SPECIFICATION** - Full spec |
+| 5 | `docs/plugin-sdk/README.md` | SDK reference |
+| 6 | `docs/opnet-node/README.md` | Node integration |
 
 **CRITICAL:** You MUST implement `onReorg()` to handle chain reorganizations or your data will be inconsistent.
 
@@ -258,15 +289,24 @@ OPNet development has:
 
 | Order | File | Contains |
 |-------|------|----------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules |
 | 2 | `guidelines/setup-guidelines.md` | Package versions |
 | 3 | `guidelines/unit-testing-guidelines.md` | Summary of test patterns |
-| 4 | `docs/testing-unit-test-framework-README.md` | Framework overview |
-| 5 | `docs/testing-opnet-unit-test-README.md` | Test setup |
-| 6 | `docs/testing-opnet-unit-test-docs-Blockchain.md` | Blockchain mocking |
-| 7 | `docs/testing-opnet-unit-test-docs-ContractRuntime.md` | Contract runtime |
+| 4 | `docs/unit-test-framework/README.md` | Framework overview |
+| 5 | `docs/unit-test-framework/getting-started/installation.md` | Installation & setup |
+| 6 | `docs/unit-test-framework/getting-started/quick-start.md` | Quick start guide |
+| 7 | `docs/unit-test-framework/writing-tests/basic-tests.md` | Writing basic tests |
+| 8 | `docs/unit-test-framework/api-reference/blockchain.md` | Blockchain mocking |
+| 9 | `docs/unit-test-framework/api-reference/contract-runtime.md` | Contract runtime |
+| 10 | `docs/unit-test-framework/api-reference/assertions.md` | Assert API |
+| 11 | `docs/unit-test-framework/advanced/gas-profiling.md` | Gas profiling |
 
 **CRITICAL:** Unit tests are TypeScript (NOT AssemblyScript). They have a SEPARATE package.json.
+
+**For OP20 token tests:** Also read `docs/unit-test-framework/writing-tests/op20-tokens.md`
+**For OP721 NFT tests:** Also read `docs/unit-test-framework/writing-tests/op721-nfts.md`
+**For custom contract tests:** Also read `docs/unit-test-framework/writing-tests/custom-contracts.md`
+**For upgradeable contract tests:** Also read `docs/unit-test-framework/advanced/upgradeable-contracts.md`
 
 ---
 
@@ -340,14 +380,14 @@ Always engage professional auditors for contracts handling real value.
 
 | Order | File | Why Required |
 |-------|------|--------------|
-| 1 | `docs/core-typescript-law-CompleteLaw.md` | Type rules that define secure code |
+| 1 | `docs/typescript-law/CompleteLaw.md` | Type rules that define secure code |
 | 2 | `guidelines/audit-guidelines.md` | **COMPLETE AUDIT GUIDE** - vulnerability patterns, checklists, detection methods |
 
 **Then read based on code type:**
 
 | Code Type | Additional Required Reading |
 |-----------|----------------------------|
-| Smart Contracts | `docs/contracts-btc-runtime-core-concepts-security.md`, `docs/contracts-btc-runtime-gas-optimization.md`, `docs/contracts-btc-runtime-api-reference-safe-math.md`, `docs/contracts-btc-runtime-types-bytes-writer-reader.md` |
+| Smart Contracts | `docs/btc-runtime/core-concepts/security.md`, `docs/btc-runtime/api-reference/safe-math.md`, `docs/btc-runtime/types/bytes-writer-reader.md`, `docs/btc-runtime/contracts/upgradeable.md` |
 | DEX/Swap Code | This SKILL.md - CSV, NativeSwap, Slashing sections |
 | Frontend | `guidelines/frontend-guidelines.md` |
 | Backend | `guidelines/backend-guidelines.md` |
@@ -360,7 +400,7 @@ Always engage professional auditors for contracts handling real value.
 **BEFORE writing ANY audit findings, confirm:**
 
 - [ ] I have read `guidelines/audit-guidelines.md` completely
-- [ ] I have read `docs/core-typescript-law-CompleteLaw.md` completely
+- [ ] I have read `docs/typescript-law/CompleteLaw.md` completely
 - [ ] I have read ALL additional docs for this code type
 - [ ] I understand the Critical Runtime Vulnerability Patterns section
 - [ ] I understand serialization/deserialization consistency requirements
@@ -487,19 +527,52 @@ Always engage professional auditors for contracts handling real value.
 
 ### Step 1: Install Dependencies
 
-**For Non-Contract Projects:**
+**CRITICAL: Clean install is MANDATORY. Always delete node_modules and lock file first.**
+
+**For Backend / Frontend / Plugins:**
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+rm -rf node_modules package-lock.json
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc --prefer-online
 ```
 
-**For Contract Projects:**
+**For React/Next.js Frontends (same as above, plus React plugins):**
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/opnet-transform@1.1.0 @btc-vision/assemblyscript@^0.29.2 @btc-vision/as-bignum@0.1.2 @btc-vision/btc-runtime@rc --prefer-online
+rm -rf node_modules package-lock.json
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc --prefer-online
 ```
+
+**For Contract Projects (AssemblyScript):**
+```bash
+rm -rf node_modules package-lock.json
+npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/btc-runtime@rc @btc-vision/as-bignum@latest @btc-vision/assemblyscript @btc-vision/opnet-transform@latest @assemblyscript/loader@latest --prefer-online
+```
+
+**For Unit Test Projects:**
+```bash
+rm -rf node_modules package-lock.json
+npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc @btc-vision/op-vm@rc @btc-vision/unit-test-framework@beta --prefer-online
+```
+
+### Step 1b: Install ESLint (all project types)
+```bash
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
+# For React frontends, also install:
+npm i -D eslint-plugin-react-hooks eslint-plugin-react-refresh
+```
+
+Then copy the appropriate `eslint.config.js` from the skill's `docs/` directory:
+- **Backend/Plugin:** `docs/eslint-generic.js`
+- **Contract (AS):** `docs/eslint-contract.js`
+- **React frontend:** `docs/eslint-react.js`
 
 - Run the appropriate command FIRST before any other commands
 - If package.json was created or modified, this is REQUIRED
 - Do NOT skip this step - do NOT just run `npm install` alone
+- **CRITICAL:** `rm -rf node_modules package-lock.json` is MANDATORY before upgrading
+- **CRITICAL:** For contract projects, `npm uninstall assemblyscript` MUST run first to avoid conflicts with the custom fork
+- **NOTE:** WalletConnect (`@btc-vision/walletconnect`) is NOT upgraded yet - do not update it
 
 ### Step 2: Run Prettier
 ```bash
@@ -614,11 +687,18 @@ npm run test
 **You MUST run and PASS all verification commands BEFORE packaging:**
 
 ```bash
-# 1. Install dependencies (use the appropriate command for your project type)
-# Non-contract:
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
-# Contract:
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/opnet-transform@1.1.0 @btc-vision/assemblyscript@^0.29.2 @btc-vision/as-bignum@0.1.2 @btc-vision/btc-runtime@rc --prefer-online
+# 1. Install dependencies (CLEAN INSTALL MANDATORY - use the appropriate command)
+# Backend / Frontend / Plugins:
+rm -rf node_modules package-lock.json
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc --prefer-online
+# Contract (AssemblyScript):
+rm -rf node_modules package-lock.json && npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/btc-runtime@rc @btc-vision/as-bignum@latest @btc-vision/assemblyscript @btc-vision/opnet-transform@latest @assemblyscript/loader@latest --prefer-online
+# Unit Tests:
+rm -rf node_modules package-lock.json && npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc @btc-vision/op-vm@rc @btc-vision/unit-test-framework@beta --prefer-online
+# ESLint (all project types):
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
 
 # 2. Format code
 npm run format
@@ -677,12 +757,17 @@ The **checksum root** for each epoch is a cryptographic fingerprint of the entir
 
 ### Key Principles
 
-1. **Contracts are WebAssembly** (AssemblyScript) - Deterministic execution
+1. **Contracts are WebAssembly** (AssemblyScript) - Deterministic execution via `@btc-vision/assemblyscript` (custom fork with closure support)
 2. **NON-CUSTODIAL** - Contracts NEVER hold BTC
 3. **Verify-don't-custody** - Contracts verify L1 tx outputs, not hold funds
 4. **Partial reverts** - Only consensus layer execution reverts; Bitcoin transfers are ALWAYS valid
 5. **No gas token** - Uses Bitcoin directly
 6. **CSV timelocks are MANDATORY** - All addresses receiving BTC in swaps MUST use CSV (CheckSequenceVerify) to prevent transaction pinning attacks
+7. **ECDSA + Keccak-256 in VM** - The VM supports ECDSA signature verification and Keccak-256 hashing natively (per-algorithm gas model)
+8. **Contract upgrades** - Contracts can extend `Upgradeable` base class with `onUpdate()` lifecycle hook for safe upgrades
+9. **Constant/Payable ABI validation** - Methods can be marked `constant` (read-only, no state changes) or `payable` (accepts BTC), enforced at ABI level
+10. **Quantum resistance** - ML-DSA (FIPS 204) signature support via P2MR addresses (BIP-360)
+11. **Buffer is GONE** - The entire stack uses `Uint8Array` instead of Node.js `Buffer`
 
 ### Why OPNet Requires Consensus (Not Just Indexing)
 
@@ -918,6 +1003,24 @@ This makes manipulation economically irrational and ensures queue depth is a rel
 
 ---
 
+## Common How-To Guides
+
+For common tasks, refer to these specialized guides in `how-to/`:
+
+| Guide | File | Description |
+|-------|------|-------------|
+| Airdrops | `how-to/airdrops.md` | Claim-based airdrop pattern (OPNet's two-address system prevents loop-and-transfer) |
+| Message Signing | `how-to/message-signing.md` | ML-DSA, Schnorr, ECDSA signing with Auto methods |
+| ETH Equivalents | `how-to/eth-equivalents.md` | Feature mapping table (Ethereum → OPNet alternatives) |
+| Multisig | `how-to/multisig.md` | Multisig transaction workflow |
+| Offline Signing | `how-to/offline-signing.md` | Air-gapped signing workflow |
+| Contract Upgrades | `how-to/contract-upgrades.md` | Upgrade pattern with onUpdate lifecycle |
+| DEX Building | `how-to/dex-building.md` | NativeSwap pattern for DEX |
+| Stablecoin | `how-to/stablecoin.md` | Stablecoin contract pattern |
+| Oracle Integration | `how-to/oracle-integration.md` | Oracle pattern |
+
+---
+
 ## ENFORCEMENT RULES (NON-NEGOTIABLE)
 
 ### ABI-Based Contract Interaction is MANDATORY
@@ -927,14 +1030,15 @@ This makes manipulation economically irrational and ensures queue depth is a rel
 - **ALWAYS** import and use the contract's ABI (from `opnet` built-in ABIs or custom ABIs) when instantiating contracts
 - **NEVER** use raw RPC calls, manual calldata encoding, or any other method to interact with contracts
 - **ALWAYS** use typed contract instances created from ABIs for type-safe method calls and return value decoding
-- **Read `docs/core-opnet-abi-reference-abi-overview.md` and `docs/core-opnet-abi-reference-custom-abis.md`** to understand ABI creation and usage
+- **Read `docs/opnet/abi-reference/abi-overview.md` and `docs/opnet/abi-reference/custom-abis.md`** to understand ABI creation and usage
 
 ```typescript
 // CORRECT - Use opnet package with ABI definition
 import { JSONRpcProvider } from 'opnet';
+import { networks } from '@btc-vision/bitcoin';
 import { MyContractABI } from './abi/MyContractABI.js';
 
-const provider = new JSONRpcProvider('https://regtest.opnet.org');
+const provider = new JSONRpcProvider({ url: 'https://regtest.opnet.org', network: networks.regtest });
 const contract = provider.getContract(contractAddress, MyContractABI);
 const result = await contract.someMethod(param1, param2);
 
@@ -945,7 +1049,7 @@ const result = await fetch(rpcUrl, { body: JSON.stringify({ method: 'call', para
 const calldata = new Uint8Array([...]);
 ```
 
-**If a contract does not have a pre-built ABI in `opnet`, you MUST create a custom ABI definition following `docs/core-opnet-abi-reference-custom-abis.md`.**
+**If a contract does not have a pre-built ABI in `opnet`, you MUST create a custom ABI definition following `docs/opnet/abi-reference/custom-abis.md`.**
 
 ---
 
@@ -979,7 +1083,7 @@ const contract = getContract(address, abi, provider);
 const contract = getContract(address, abi, provider, network, senderAddress);
 ```
 
-**Read `docs/core-opnet-contracts-instantiating-contracts.md` for the exact signature. Do NOT guess the params.**
+**Read `docs/opnet/contracts/instantiating-contracts.md` for the exact signature. Do NOT guess the params.**
 
 #### 3. WRONG: Gating frontend actions on `signer` from walletconnect
 
@@ -1005,7 +1109,7 @@ const { provider } = useWalletConnect();
 const data = await provider.call(...);
 
 // CORRECT - Dedicated read provider
-const readProvider = new JSONRpcProvider('https://regtest.opnet.org');
+const readProvider = new JSONRpcProvider({ url: 'https://regtest.opnet.org', network: networks.regtest });
 const contract = readProvider.getContract(address, abi);
 const data = await contract.someReadMethod();
 ```
@@ -1102,16 +1206,16 @@ const { publicKey, hashedMLDSAKey, mldsaPublicKey, address: walletAddress } = us
 
 **YOU MUST:**
 
-1. **READ `docs/core-typescript-law-CompleteLaw.md` COMPLETELY** - These are strict TypeScript rules
+1. **READ `docs/typescript-law/CompleteLaw.md` COMPLETELY** - These are strict TypeScript rules
 2. **VERIFY project configuration matches standards** in `docs/` config files
 
 ### Configuration Files (in `docs/`)
 
 | File | Purpose |
 |------|---------|
-| `eslint-contract.json` | ESLint for AssemblyScript contracts |
-| `eslint-generic.json` | ESLint for TypeScript libraries |
-| `eslint-react.json` | ESLint for React/Next.js frontends |
+| `eslint-contract.js` | ESLint for AssemblyScript contracts |
+| `eslint-generic.js` | ESLint for TypeScript libraries |
+| `eslint-react.js` | ESLint for React/Next.js frontends |
 | `tsconfig-generic.json` | TypeScript config (NOT for contracts) |
 | `asconfig.json` | AssemblyScript compiler config |
 
@@ -1271,7 +1375,7 @@ Misconfigured projects lead to **exploits and critical vulnerabilities**.
 
 ## TypeScript Law (CRITICAL)
 
-From `docs/core-typescript-law-CompleteLaw.md`:
+From `docs/typescript-law/CompleteLaw.md`:
 
 ### FORBIDDEN Constructs
 
@@ -1336,7 +1440,7 @@ public async transfer(to: Address, amount: bigint): Promise<boolean> {
 ### Numeric Types
 
 - **`number`**: Array lengths, loop counters, small flags, ports, pixels
-- **`bigint`**: Satoshi amounts, block heights, database IDs, file sizes, cumulative totals
+- **`bigint`**: Satoshi amounts, block heights, timestamps, database IDs, file sizes, cumulative totals
 - **Floats for financial values**: **FORBIDDEN** - Use fixed-point `bigint` with explicit scale
 
 ### Common API Pitfalls
@@ -1361,12 +1465,6 @@ The first parameter is the 32-byte SHA256 **hash** of the ML-DSA public key — 
 
 ### Required tsconfig.json Settings
 
-**Note:** `module` and `moduleResolution` depend on your target:
-- **Frontend (Vite):** `"module": "ESNext"`, `"moduleResolution": "bundler"`
-- **Libraries / Backend (Node.js):** `"module": "NodeNext"`, `"moduleResolution": "NodeNext"` (see `docs/tsconfig-generic.json`)
-
-The strict type-checking settings below are required for all project types:
-
 ```json
 {
     "compilerOptions": {
@@ -1380,6 +1478,8 @@ The strict type-checking settings below are required for all project types:
         "noFallthroughCasesInSwitch": true,
         "noUncheckedIndexedAccess": true,
         "noImplicitOverride": true,
+        "moduleResolution": "bundler",
+        "module": "ESNext",
         "target": "ESNext",
         "lib": ["ESNext"],
         "isolatedModules": true,
@@ -1539,211 +1639,329 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 | File | Description |
 |------|-------------|
 | `docs/asconfig.json` | AssemblyScript compiler config |
-| `docs/eslint-contract.json` | ESLint for AssemblyScript contracts |
-| `docs/eslint-generic.json` | ESLint for TypeScript libraries |
-| `docs/eslint-react.json` | ESLint for React frontends |
+| `docs/eslint-contract.js` | ESLint for AssemblyScript contracts |
+| `docs/eslint-generic.js` | ESLint for TypeScript libraries |
+| `docs/eslint-react.js` | ESLint for React frontends |
 | `docs/tsconfig-generic.json` | TypeScript config (not contracts) |
 | `docs/setup-README.md` | Setup instructions |
 
-### TypeScript Law
+### TypeScript Law (`docs/typescript-law/`)
 
 | File | Description |
 |------|-------------|
-| `docs/core-typescript-law-readme.md` | Overview |
-| `docs/core-typescript-law-CompleteLaw.md` | **COMPLETE RULES - READ FIRST** |
+| `docs/typescript-law/README.md` | Overview |
+| `docs/typescript-law/CompleteLaw.md` | **COMPLETE RULES - READ FIRST** (12,601 lines) |
 
-### OPNet Client Library
-
-| File | Description |
-|------|-------------|
-| `docs/core-opnet-README.md` | Library overview |
-| `docs/core-opnet-backend-api.md` | Backend API with hyper-express |
-| `docs/core-opnet-getting-started-installation.md` | Installation |
-| `docs/core-opnet-getting-started-overview.md` | Architecture overview |
-| `docs/core-opnet-getting-started-quick-start.md` | Quick start guide |
-| `docs/core-opnet-providers-json-rpc-provider.md` | JSON-RPC provider |
-| `docs/core-opnet-providers-websocket-provider.md` | WebSocket provider |
-| `docs/core-opnet-providers-understanding-providers.md` | Provider concepts |
-| `docs/core-opnet-providers-advanced-configuration.md` | Advanced config |
-| `docs/core-opnet-providers-internal-caching.md` | Caching system |
-| `docs/core-opnet-providers-threaded-http.md` | Threading |
-| `docs/core-opnet-contracts-overview.md` | Contract interaction overview |
-| `docs/core-opnet-contracts-instantiating-contracts.md` | Creating contract instances |
-| `docs/core-opnet-contracts-simulating-calls.md` | Simulating calls |
-| `docs/core-opnet-contracts-sending-transactions.md` | Sending transactions |
-| `docs/core-opnet-contracts-gas-estimation.md` | Gas estimation |
-| `docs/core-opnet-contracts-offline-signing.md` | Offline signing |
-| `docs/core-opnet-contracts-transaction-configuration.md` | TX config |
-| `docs/core-opnet-contracts-contract-code.md` | Contract code retrieval |
-| `docs/core-opnet-abi-reference-abi-overview.md` | ABI overview |
-| `docs/core-opnet-abi-reference-data-types.md` | ABI data types |
-| `docs/core-opnet-abi-reference-op20-abi.md` | OP20 ABI |
-| `docs/core-opnet-abi-reference-op20s-abi.md` | OP20S ABI (signatures) |
-| `docs/core-opnet-abi-reference-op721-abi.md` | OP721 ABI |
-| `docs/core-opnet-abi-reference-motoswap-abis.md` | MotoSwap ABIs |
-| `docs/core-opnet-abi-reference-factory-abis.md` | Factory ABIs |
-| `docs/core-opnet-abi-reference-stablecoin-abis.md` | Stablecoin ABIs |
-| `docs/core-opnet-abi-reference-custom-abis.md` | Custom ABI creation |
-| `docs/core-opnet-api-reference-provider-api.md` | Provider API |
-| `docs/core-opnet-api-reference-contract-api.md` | Contract API |
-| `docs/core-opnet-api-reference-epoch-api.md` | Epoch API |
-| `docs/core-opnet-api-reference-utxo-manager-api.md` | UTXO Manager API |
-| `docs/core-opnet-api-reference-types-interfaces.md` | Types & interfaces |
-| `docs/core-opnet-bitcoin-utxos.md` | UTXO handling |
-| `docs/core-opnet-bitcoin-utxo-optimization.md` | UTXO optimization |
-| `docs/core-opnet-bitcoin-balances.md` | Balance queries |
-| `docs/core-opnet-bitcoin-sending-bitcoin.md` | Sending BTC |
-| `docs/core-opnet-blocks-block-operations.md` | Block operations |
-| `docs/core-opnet-blocks-block-witnesses.md` | Block witnesses |
-| `docs/core-opnet-blocks-gas-parameters.md` | Gas parameters |
-| `docs/core-opnet-blocks-reorg-detection.md` | Reorg detection |
-| `docs/core-opnet-epochs-overview.md` | Epochs overview |
-| `docs/core-opnet-epochs-epoch-operations.md` | Epoch operations |
-| `docs/core-opnet-epochs-mining-template.md` | Mining template |
-| `docs/core-opnet-epochs-submitting-epochs.md` | Submitting epochs |
-| `docs/core-opnet-transactions-broadcasting.md` | Broadcasting TXs |
-| `docs/core-opnet-transactions-fetching-transactions.md` | Fetching TXs |
-| `docs/core-opnet-transactions-transaction-receipts.md` | TX receipts |
-| `docs/core-opnet-transactions-challenges.md` | TX challenges |
-| `docs/core-opnet-storage-storage-operations.md` | Storage operations |
-| `docs/core-opnet-public-keys-public-key-operations.md` | Public key ops |
-| `docs/core-opnet-utils-bitcoin-utils.md` | Bitcoin utilities |
-| `docs/core-opnet-utils-binary-serialization.md` | Binary serialization |
-| `docs/core-opnet-utils-revert-decoder.md` | Revert decoder |
-| `docs/core-opnet-examples-op20-examples.md` | OP20 examples |
-| `docs/core-opnet-examples-op721-examples.md` | OP721 examples |
-| `docs/core-opnet-examples-deployment-examples.md` | Deployment examples |
-| `docs/core-opnet-examples-advanced-swaps.md` | Swap examples |
-
-### Transaction Library
+### OPNet Client Library (`docs/opnet/`)
 
 | File | Description |
 |------|-------------|
-| `docs/core-transaction-README.md` | Library overview |
-| `docs/core-transaction-transaction-building.md` | Building transactions |
-| `docs/core-transaction-transaction-factory-interfaces.md` | **TransactionFactory interfaces (fees, notes, anchors, send-max)** |
-| `docs/core-transaction-offline-transaction-signing.md` | Offline signing |
-| `docs/core-transaction-addresses-P2OP.md` | P2OP address format |
-| `docs/core-transaction-quantum-support-README.md` | Quantum overview |
-| `docs/core-transaction-quantum-support-01-introduction.md` | Quantum intro |
-| `docs/core-transaction-quantum-support-02-mnemonic-and-wallet.md` | Quantum wallet |
-| `docs/core-transaction-quantum-support-03-address-generation.md` | Quantum addresses |
-| `docs/core-transaction-quantum-support-04-message-signing.md` | Quantum signing |
-| `docs/core-transaction-quantum-support-05-address-verification.md` | Quantum verification |
+| `docs/opnet/README.md` | Library overview |
+| `docs/opnet/getting-started/installation.md` | Installation |
+| `docs/opnet/getting-started/overview.md` | Architecture overview |
+| `docs/opnet/getting-started/quick-start.md` | Quick start guide |
+| `docs/opnet/providers/json-rpc-provider.md` | JSON-RPC provider |
+| `docs/opnet/providers/websocket-provider.md` | WebSocket provider |
+| `docs/opnet/providers/understanding-providers.md` | Provider concepts |
+| `docs/opnet/providers/advanced-configuration.md` | Advanced config |
+| `docs/opnet/providers/internal-caching.md` | Caching system |
+| `docs/opnet/providers/threaded-http.md` | Threading |
+| `docs/opnet/contracts/overview.md` | Contract interaction overview |
+| `docs/opnet/contracts/instantiating-contracts.md` | Creating contract instances |
+| `docs/opnet/contracts/simulating-calls.md` | Simulating calls |
+| `docs/opnet/contracts/sending-transactions.md` | Sending transactions |
+| `docs/opnet/contracts/gas-estimation.md` | Gas estimation |
+| `docs/opnet/contracts/offline-signing.md` | Offline signing |
+| `docs/opnet/contracts/transaction-configuration.md` | TX config |
+| `docs/opnet/contracts/contract-code.md` | Contract code retrieval |
+| `docs/opnet/abi-reference/abi-overview.md` | ABI overview |
+| `docs/opnet/abi-reference/data-types.md` | ABI data types |
+| `docs/opnet/abi-reference/op20-abi.md` | OP20 ABI |
+| `docs/opnet/abi-reference/op20s-abi.md` | OP20S ABI (signatures) |
+| `docs/opnet/abi-reference/op721-abi.md` | OP721 ABI |
+| `docs/opnet/abi-reference/motoswap-abis.md` | MotoSwap ABIs |
+| `docs/opnet/abi-reference/factory-abis.md` | Factory ABIs |
+| `docs/opnet/abi-reference/stablecoin-abis.md` | Stablecoin ABIs |
+| `docs/opnet/abi-reference/custom-abis.md` | Custom ABI creation |
+| `docs/opnet/api-reference/provider-api.md` | Provider API |
+| `docs/opnet/api-reference/contract-api.md` | Contract API |
+| `docs/opnet/api-reference/epoch-api.md` | Epoch API |
+| `docs/opnet/api-reference/utxo-manager-api.md` | UTXO Manager API |
+| `docs/opnet/api-reference/types-interfaces.md` | Types & interfaces |
+| `docs/opnet/bitcoin/utxos.md` | UTXO handling |
+| `docs/opnet/bitcoin/utxo-optimization.md` | UTXO optimization |
+| `docs/opnet/bitcoin/balances.md` | Balance queries |
+| `docs/opnet/bitcoin/sending-bitcoin.md` | Sending BTC |
+| `docs/opnet/blocks/block-operations.md` | Block operations |
+| `docs/opnet/blocks/block-witnesses.md` | Block witnesses |
+| `docs/opnet/blocks/gas-parameters.md` | Gas parameters |
+| `docs/opnet/blocks/reorg-detection.md` | Reorg detection |
+| `docs/opnet/epochs/overview.md` | Epochs overview |
+| `docs/opnet/epochs/epoch-operations.md` | Epoch operations |
+| `docs/opnet/epochs/mining-template.md` | Mining template |
+| `docs/opnet/epochs/submitting-epochs.md` | Submitting epochs |
+| `docs/opnet/transactions/broadcasting.md` | Broadcasting TXs |
+| `docs/opnet/transactions/fetching-transactions.md` | Fetching TXs |
+| `docs/opnet/transactions/transaction-receipts.md` | TX receipts |
+| `docs/opnet/transactions/challenges.md` | TX challenges |
+| `docs/opnet/storage/storage-operations.md` | Storage operations |
+| `docs/opnet/public-keys/public-key-operations.md` | Public key ops |
+| `docs/opnet/utils/bitcoin-utils.md` | Bitcoin utilities |
+| `docs/opnet/utils/binary-serialization.md` | Binary serialization |
+| `docs/opnet/utils/revert-decoder.md` | Revert decoder |
+| `docs/opnet/examples/op20-examples.md` | OP20 examples |
+| `docs/opnet/examples/op721-examples.md` | OP721 examples |
+| `docs/opnet/examples/deployment-examples.md` | Deployment examples |
+| `docs/opnet/examples/advanced-swaps.md` | Swap examples |
 
-### Address Systems & Airdrops (CRITICAL)
-
-| File | Description |
-|------|-------------|
-| `docs/core-opnet-address-systems-airdrop-pattern.md` | **Two address systems, airdrop pattern (MUST READ)** |
-
-### OIP Specifications
-
-| File | Description |
-|------|-------------|
-| `docs/core-OIP-README.md` | OIP overview |
-| `docs/core-OIP-OIP-0001.md` | OIP process |
-| `docs/core-OIP-OIP-0002.md` | Contract standards |
-| `docs/core-OIP-OIP-0003.md` | **Plugin system spec** |
-| `docs/core-OIP-OIP-0004.md` | Epoch system |
-| `docs/core-OIP-OIP-0020.md` | OP20 token standard |
-| `docs/core-OIP-OIP-0721.md` | OP721 NFT standard |
-
-### Contract Runtime (btc-runtime)
-
-| File | Description |
-|------|-------------|
-| `docs/contracts-btc-runtime-README.md` | Runtime overview |
-| `docs/contracts-btc-runtime-gas-optimization.md` | **Gas optimization (CRITICAL)** |
-| `docs/contracts-btc-runtime-getting-started-installation.md` | Installation |
-| `docs/contracts-btc-runtime-getting-started-first-contract.md` | First contract |
-| `docs/contracts-btc-runtime-getting-started-project-structure.md` | Project structure |
-| `docs/contracts-btc-runtime-core-concepts-blockchain-environment.md` | Blockchain env |
-| `docs/contracts-btc-runtime-core-concepts-storage-system.md` | Storage system |
-| `docs/contracts-btc-runtime-core-concepts-pointers.md` | Storage pointers |
-| `docs/contracts-btc-runtime-core-concepts-events.md` | Events |
-| `docs/contracts-btc-runtime-core-concepts-decorators.md` | Decorators |
-| `docs/contracts-btc-runtime-core-concepts-security.md` | Security |
-| `docs/contracts-btc-runtime-api-reference-blockchain.md` | Blockchain API |
-| `docs/contracts-btc-runtime-api-reference-storage.md` | Storage API |
-| `docs/contracts-btc-runtime-api-reference-events.md` | Events API |
-| `docs/contracts-btc-runtime-api-reference-op20.md` | OP20 API |
-| `docs/contracts-btc-runtime-api-reference-op721.md` | OP721 API |
-| `docs/contracts-btc-runtime-api-reference-safe-math.md` | SafeMath API |
-| `docs/contracts-btc-runtime-contracts-op-net-base.md` | OP_NET base class |
-| `docs/contracts-btc-runtime-contracts-op20-token.md` | OP20 implementation |
-| `docs/contracts-btc-runtime-contracts-op20s-signatures.md` | OP20S signatures |
-| `docs/contracts-btc-runtime-contracts-op721-nft.md` | OP721 implementation |
-| `docs/contracts-btc-runtime-contracts-reentrancy-guard.md` | Reentrancy guard |
-| `docs/contracts-btc-runtime-contracts-upgradeable.md` | Upgradeable contracts |
-| `docs/contracts-btc-runtime-storage-stored-primitives.md` | Stored primitives |
-| `docs/contracts-btc-runtime-storage-stored-maps.md` | Stored maps |
-| `docs/contracts-btc-runtime-storage-stored-arrays.md` | Stored arrays |
-| `docs/contracts-btc-runtime-storage-memory-maps.md` | Memory maps |
-| `docs/contracts-btc-runtime-types-address.md` | Address type |
-| `docs/contracts-btc-runtime-types-calldata.md` | Calldata type |
-| `docs/contracts-btc-runtime-types-bytes-writer-reader.md` | BytesWriter/Reader |
-| `docs/contracts-btc-runtime-types-safe-math.md` | SafeMath type |
-| `docs/contracts-btc-runtime-advanced-cross-contract-calls.md` | Cross-contract calls |
-| `docs/contracts-btc-runtime-advanced-signature-verification.md` | Signature verification |
-| `docs/contracts-btc-runtime-advanced-quantum-resistance.md` | Quantum resistance |
-| `docs/contracts-btc-runtime-advanced-bitcoin-scripts.md` | Bitcoin scripts |
-| `docs/contracts-btc-runtime-advanced-contract-upgrades.md` | Contract upgrades |
-| `docs/contracts-btc-runtime-advanced-plugins.md` | Contract plugins |
-| `docs/contracts-btc-runtime-examples-basic-token.md` | Basic token example |
-| `docs/contracts-btc-runtime-examples-stablecoin.md` | Stablecoin example |
-| `docs/contracts-btc-runtime-examples-nft-with-reservations.md` | NFT example |
-| `docs/contracts-btc-runtime-examples-oracle-integration.md` | Oracle example |
-
-### Other Contract Docs
+### Transaction Library (`docs/transaction/`)
 
 | File | Description |
 |------|-------------|
-| `docs/contracts-as-bignum-README.md` | BigNum library (u256, u128) |
-| `docs/contracts-opnet-transform-README.md` | Transform decorators |
-| `docs/contracts-opnet-transform-std-README.md` | Standard library |
-| `docs/contracts-example-tokens-README.md` | Example tokens |
-| `docs/contracts-example-tokens-docs-OP_20.md` | OP20 example |
+| `docs/transaction/README.md` | Library overview |
+| `docs/transaction/getting-started/installation.md` | Installation |
+| `docs/transaction/getting-started/overview.md` | Architecture overview |
+| `docs/transaction/getting-started/quick-start.md` | Quick start guide |
+| `docs/transaction/transaction-building/transaction-factory.md` | Transaction factory |
+| `docs/transaction/transaction-building/transaction-factory-interfaces.md` | **TransactionFactory interfaces (fees, notes, anchors, send-max)** |
+| `docs/transaction/transaction-building/deployment-transactions.md` | Deployment transactions |
+| `docs/transaction/transaction-building/interaction-transactions.md` | Interaction transactions |
+| `docs/transaction/transaction-building/funding-transactions.md` | Funding transactions |
+| `docs/transaction/transaction-building/multisig-transactions.md` | Multisig transactions |
+| `docs/transaction/transaction-building/cancel-transactions.md` | Cancel transactions |
+| `docs/transaction/transaction-building/consolidated-transactions.md` | Consolidated transactions |
+| `docs/transaction/transaction-building/custom-script-transactions.md` | Custom script transactions |
+| `docs/transaction/keypair/address.md` | Address class |
+| `docs/transaction/keypair/ec-keypair.md` | EC keypair |
+| `docs/transaction/keypair/message-signer.md` | Message signing (Auto methods) |
+| `docs/transaction/keypair/mnemonic.md` | Mnemonic generation |
+| `docs/transaction/keypair/wallet.md` | Wallet class |
+| `docs/transaction/keypair/address-verificator.md` | Address verification |
+| `docs/transaction/signer/tweaked-signer.md` | Tweaked signer |
+| `docs/transaction/signer/parallel-signer.md` | Parallel signer |
+| `docs/transaction/signer/address-rotation.md` | Address rotation |
+| `docs/transaction/offline/offline-transaction-signing.md` | Offline signing |
+| `docs/transaction/addresses/P2OP.md` | P2OP address format |
+| `docs/transaction/addresses/P2WDA.md` | P2WDA (witness data address) |
+| `docs/transaction/addresses/address-types.md` | Address types overview |
+| `docs/transaction/quantum-support/README.md` | Quantum overview |
+| `docs/transaction/quantum-support/01-introduction.md` | Quantum intro |
+| `docs/transaction/quantum-support/02-mnemonic-and-wallet.md` | Quantum wallet |
+| `docs/transaction/quantum-support/03-address-generation.md` | Quantum addresses |
+| `docs/transaction/quantum-support/04-message-signing.md` | Quantum signing |
+| `docs/transaction/quantum-support/05-address-verification.md` | Quantum verification |
+| `docs/transaction/abi/abi-coder.md` | ABI coder |
+| `docs/transaction/binary/binary-reader.md` | Binary reader |
+| `docs/transaction/binary/binary-writer.md` | Binary writer |
+| `docs/transaction/browser/wallet-extensions.md` | Wallet extensions |
+| `docs/transaction/browser/web3-provider.md` | Web3 provider |
+| `docs/transaction/deterministic/deterministic-collections.md` | Deterministic collections |
+| `docs/transaction/epoch/challenge-solution.md` | Challenge solution |
+| `docs/transaction/epoch/epoch-validator.md` | Epoch validator |
+| `docs/transaction/generators/generators.md` | Generators |
+| `docs/transaction/utils/bitcoin-utils.md` | Bitcoin utilities |
+| `docs/transaction/utils/buffer-helper.md` | Buffer helper (Uint8Array) |
+| `docs/transaction/utils/compressor.md` | Compressor |
+| `docs/transaction/utils/types-and-constants.md` | Types and constants |
+| `docs/transaction/utxo/opnet-limited-provider.md` | UTXO limited provider |
+| `docs/transaction/api-reference/interfaces.md` | API interfaces |
+| `docs/transaction/api-reference/response-types.md` | Response types |
+| `docs/transaction/api-reference/transaction-types.md` | Transaction types |
 
-### Client Libraries
+### Bitcoin Library (`docs/bitcoin/`)
 
 | File | Description |
 |------|-------------|
-| `docs/clients-bitcoin-README.md` | Bitcoin library overview |
-| `docs/clients-bitcoin-psbt.md` | PSBT class, signing, finalization |
-| `docs/clients-bitcoin-payments.md` | Payment types (P2TR, P2WPKH, P2WSH, P2SH, P2OP) |
-| `docs/clients-bitcoin-script.md` | Script building, opcodes |
-| `docs/clients-bitcoin-address.md` | Address encoding/decoding |
-| `docs/clients-bitcoin-transaction.md` | Transaction class |
-| `docs/clients-bip32-README.md` | BIP32 HD derivation |
-| `docs/clients-bip32-QUANTUM.md` | Quantum support |
-| `docs/clients-ecpair-README.md` | EC key pairs |
-| `docs/clients-walletconnect-README.md` | WalletConnect |
-| `docs/clients-walletconnect-wallet-integration.md` | Wallet integration |
+| `docs/bitcoin/README.md` | Bitcoin library overview |
+| `docs/bitcoin/psbt.md` | PSBT class, signing, finalization |
+| `docs/bitcoin/payments.md` | Payment types (P2TR, P2WPKH, P2WSH, P2SH, P2OP, P2MR) |
+| `docs/bitcoin/p2mr.md` | **P2MR (BIP-360) quantum-resistant addresses** |
+| `docs/bitcoin/script.md` | Script building, opcodes |
+| `docs/bitcoin/address.md` | Address encoding/decoding |
+| `docs/bitcoin/transaction.md` | Transaction class |
+| `docs/bitcoin/taproot.md` | Taproot support |
+| `docs/bitcoin/crypto.md` | Crypto utilities |
+| `docs/bitcoin/ecc.md` | Elliptic curve support |
+| `docs/bitcoin/block.md` | Block class |
+| `docs/bitcoin/errors.md` | Error types |
+| `docs/bitcoin/io.md` | I/O utilities |
+| `docs/bitcoin/networks.md` | Network configurations |
+| `docs/bitcoin/types.md` | Type definitions |
+| `docs/bitcoin/workers.md` | Worker thread support |
 
-### Testing
-
-| File | Description |
-|------|-------------|
-| `docs/testing-unit-test-framework-README.md` | Test framework |
-| `docs/testing-opnet-unit-test-README.md` | Unit testing |
-| `docs/testing-opnet-unit-test-docs-README.md` | Test docs |
-| `docs/testing-opnet-unit-test-docs-Blockchain.md` | Blockchain mocking |
-| `docs/testing-opnet-unit-test-docs-ContractRuntime.md` | Contract runtime |
-
-### Frontend
+### BIP32 Library (`docs/bip32/`)
 
 | File | Description |
 |------|-------------|
+| `docs/bip32/README.md` | BIP32 HD derivation overview |
+| `docs/bip32/getting-started/installation.md` | Installation |
+| `docs/bip32/getting-started/overview.md` | Overview |
+| `docs/bip32/getting-started/quick-start.md` | Quick start |
+| `docs/bip32/bip32/factory.md` | BIP32 factory |
+| `docs/bip32/bip32/key-derivation.md` | Key derivation |
+| `docs/bip32/bip32/serialization.md` | Serialization |
+| `docs/bip32/bip32/signing.md` | Signing |
+| `docs/bip32/bip32/tweaking.md` | Tweaking |
+| `docs/bip32/quantum/overview.md` | Quantum support overview |
+| `docs/bip32/quantum/factory.md` | Quantum factory |
+| `docs/bip32/quantum/key-derivation.md` | Quantum key derivation |
+| `docs/bip32/quantum/security-levels.md` | Quantum security levels |
+| `docs/bip32/derivation-paths/derivation-paths.md` | Derivation paths |
+| `docs/bip32/networks/network-configuration.md` | Network config |
+| `docs/bip32/api-reference/bip32-api.md` | BIP32 API |
+| `docs/bip32/api-reference/quantum-api.md` | Quantum API |
+| `docs/bip32/api-reference/types-interfaces.md` | Types & interfaces |
+
+### OIP Specifications (`docs/OIP/`)
+
+| File | Description |
+|------|-------------|
+| `docs/OIP/README.md` | OIP overview |
+| `docs/OIP/OIP/OIP-0001.md` | OIP process |
+| `docs/OIP/OIP/OIP-0002.md` | Contract standards |
+| `docs/OIP/OIP/OIP-0003.md` | **Plugin system spec** |
+| `docs/OIP/OIP/OIP-0004.md` | Epoch system |
+| `docs/OIP/standard/OIP-0020.md` | OP20 token standard |
+| `docs/OIP/standard/OIP-0721.md` | OP721 NFT standard |
+
+### Contract Runtime (`docs/btc-runtime/`)
+
+| File | Description |
+|------|-------------|
+| `docs/btc-runtime/README.md` | Runtime overview |
+| `docs/btc-runtime/getting-started/installation.md` | Installation |
+| `docs/btc-runtime/getting-started/first-contract.md` | First contract |
+| `docs/btc-runtime/getting-started/project-structure.md` | Project structure |
+| `docs/btc-runtime/core-concepts/blockchain-environment.md` | Blockchain env |
+| `docs/btc-runtime/core-concepts/storage-system.md` | Storage system |
+| `docs/btc-runtime/core-concepts/pointers.md` | Storage pointers |
+| `docs/btc-runtime/core-concepts/events.md` | Events |
+| `docs/btc-runtime/core-concepts/decorators.md` | Decorators (@method, @returns, @emit) |
+| `docs/btc-runtime/core-concepts/security.md` | Security |
+| `docs/btc-runtime/api-reference/blockchain.md` | Blockchain API |
+| `docs/btc-runtime/api-reference/storage.md` | Storage API |
+| `docs/btc-runtime/api-reference/events.md` | Events API |
+| `docs/btc-runtime/api-reference/op20.md` | OP20 API |
+| `docs/btc-runtime/api-reference/op721.md` | OP721 API |
+| `docs/btc-runtime/api-reference/safe-math.md` | SafeMath API |
+| `docs/btc-runtime/contracts/op-net-base.md` | OP_NET base class |
+| `docs/btc-runtime/contracts/op20-token.md` | OP20 implementation |
+| `docs/btc-runtime/contracts/op20s-stablecoin.md` | OP20S stablecoin/pegged-token base |
+| `docs/btc-runtime/contracts/op721-nft.md` | OP721 implementation |
+| `docs/btc-runtime/contracts/reentrancy-guard.md` | Reentrancy guard |
+| `docs/btc-runtime/contracts/upgradeable.md` | **Upgradeable contracts** |
+| `docs/btc-runtime/storage/stored-primitives.md` | Stored primitives |
+| `docs/btc-runtime/storage/stored-maps.md` | Stored maps |
+| `docs/btc-runtime/storage/stored-arrays.md` | Stored arrays |
+| `docs/btc-runtime/storage/memory-maps.md` | Memory maps |
+| `docs/btc-runtime/types/address.md` | Address type |
+| `docs/btc-runtime/types/calldata.md` | Calldata type |
+| `docs/btc-runtime/types/bytes-writer-reader.md` | BytesWriter/Reader |
+| `docs/btc-runtime/types/safe-math.md` | SafeMath type |
+| `docs/btc-runtime/advanced/cross-contract-calls.md` | Cross-contract calls |
+| `docs/btc-runtime/advanced/signature-verification.md` | Signature verification |
+| `docs/btc-runtime/advanced/quantum-resistance.md` | Quantum resistance |
+| `docs/btc-runtime/advanced/bitcoin-scripts.md` | Bitcoin scripts |
+| `docs/btc-runtime/advanced/contract-upgrades.md` | Contract upgrades |
+| `docs/btc-runtime/advanced/plugins.md` | Contract plugins |
+| `docs/btc-runtime/examples/basic-token.md` | Basic token example |
+| `docs/btc-runtime/examples/stablecoin.md` | Stablecoin example |
+| `docs/btc-runtime/examples/nft-with-reservations.md` | NFT example |
+| `docs/btc-runtime/examples/oracle-integration.md` | Oracle example |
+
+### Unit Test Framework (`docs/unit-test-framework/`) — NEW
+
+| File | Description |
+|------|-------------|
+| `docs/unit-test-framework/README.md` | Framework overview |
+| `docs/unit-test-framework/getting-started/installation.md` | Installation |
+| `docs/unit-test-framework/getting-started/quick-start.md` | Quick start |
+| `docs/unit-test-framework/writing-tests/basic-tests.md` | Basic tests |
+| `docs/unit-test-framework/writing-tests/op20-tokens.md` | OP20 token tests |
+| `docs/unit-test-framework/writing-tests/op721-nfts.md` | OP721 NFT tests |
+| `docs/unit-test-framework/writing-tests/custom-contracts.md` | Custom contract tests |
+| `docs/unit-test-framework/built-in-contracts/op20.md` | Built-in OP20 |
+| `docs/unit-test-framework/built-in-contracts/op721.md` | Built-in OP721 |
+| `docs/unit-test-framework/built-in-contracts/op721-extended.md` | Built-in OP721 Extended |
+| `docs/unit-test-framework/api-reference/assertions.md` | Assert API |
+| `docs/unit-test-framework/api-reference/blockchain.md` | Blockchain API |
+| `docs/unit-test-framework/api-reference/contract-runtime.md` | Contract runtime API |
+| `docs/unit-test-framework/api-reference/types-interfaces.md` | Types & interfaces |
+| `docs/unit-test-framework/api-reference/utilities.md` | Utilities |
+| `docs/unit-test-framework/advanced/consensus-rules.md` | Consensus rules |
+| `docs/unit-test-framework/advanced/cross-contract-calls.md` | Cross-contract tests |
+| `docs/unit-test-framework/advanced/gas-profiling.md` | Gas profiling |
+| `docs/unit-test-framework/advanced/signature-verification.md` | Signature verification |
+| `docs/unit-test-framework/advanced/state-management.md` | State management |
+| `docs/unit-test-framework/advanced/transaction-simulation.md` | Transaction simulation |
+| `docs/unit-test-framework/advanced/upgradeable-contracts.md` | Upgradeable contract tests |
+| `docs/unit-test-framework/examples/block-replay.md` | Block replay example |
+| `docs/unit-test-framework/examples/nativeswap-testing.md` | NativeSwap testing |
+
+### Legacy Unit Test (`docs/opnet-unit-test/`)
+
+| File | Description |
+|------|-------------|
+| `docs/opnet-unit-test/README.md` | Legacy test framework |
+| `docs/opnet-unit-test/Blockchain.md` | Blockchain mocking |
+| `docs/opnet-unit-test/ContractRuntime.md` | Contract runtime |
+
+### Cryptography (`docs/cryptography/`)
+
+| File | Description |
+|------|-------------|
+| `docs/cryptography/threshold-mldsa-research.md` | Threshold ML-DSA signing |
+| `docs/cryptography/threshold-ml-dsa-whitepaper-v1.1.md` | Whitepaper v1.1 |
+| `docs/cryptography/dealerless-dkg-threshold-mldsa.md` | Dealerless DKG |
+
+### Other Repo Docs
+
+| File | Description |
+|------|-------------|
+| `docs/as-bignum/README.md` | BigNum library (u256, u128) — ~2.5x gas optimization |
+| `docs/assemblyscript/README.md` | `@btc-vision/assemblyscript` fork (closure support) |
+| `docs/opnet-transform/README.md` | Transform decorators |
+| `docs/example-tokens/README.md` | Example tokens |
+| `docs/example-tokens/OP_20.md` | OP20 example |
+| `docs/ecpair/README.md` | EC key pairs |
+| `docs/walletconnect/README.md` | WalletConnect v2 |
+| `docs/walletconnect/wallet-integration.md` | Wallet integration guide |
+| `docs/opwallet/README.md` | OP_WALLET overview |
+| `docs/opwallet/Functions.md` | OP_WALLET API functions |
+| `docs/op-vm/README.md` | op-vm 1.0.0-beta.1 |
+| `docs/opnet-node/README.md` | OPNet node |
+| `docs/opnet-node/docker-README.md` | Docker setup |
+| `docs/opnet-cli/README.md` | OPNet CLI |
+| `docs/plugin-sdk/README.md` | Plugin SDK |
+| `docs/bitcoin-rpc/README.md` | Bitcoin RPC |
+| `docs/bs58check/README.md` | Base58Check |
+| `docs/noble-post-quantum/threshold-ml-dsa-whitepaper.md` | Post-quantum whitepaper |
+| `docs/noble-post-quantum/distributed-dkg-plan.md` | Distributed DKG plan |
 | `docs/frontend-motoswap-ui-README.md` | **Frontend guide (THE STANDARD)** |
 
-### Plugins
+### How-To Guides (`how-to/`)
 
 | File | Description |
 |------|-------------|
-| `docs/plugins-plugin-sdk-README.md` | Plugin SDK |
-| `docs/plugins-opnet-node-README.md` | OPNet node |
-| `docs/plugins-opnet-node-docker-README.md` | Docker setup |
+| `how-to/airdrops.md` | Claim-based airdrop pattern |
+| `how-to/message-signing.md` | ML-DSA, Schnorr, ECDSA signing |
+| `how-to/eth-equivalents.md` | Ethereum → OPNet feature mapping |
+| `how-to/multisig.md` | Multisig transaction workflow |
+| `how-to/offline-signing.md` | Air-gapped signing |
+| `how-to/contract-upgrades.md` | Upgrade pattern with onUpdate |
+| `how-to/dex-building.md` | NativeSwap DEX pattern |
+| `how-to/stablecoin.md` | Stablecoin contract pattern |
+| `how-to/oracle-integration.md` | Oracle pattern |
+
+### References (`references/`)
+
+| File | Description |
+|------|-------------|
+| `references/complete-file-index.md` | Complete file index of all docs |
+| `references/opnet-core-concepts.md` | Core OPNet concepts reference |
+| `references/troubleshooting.md` | Troubleshooting guide |
+| `references/known-frontend-mistakes.md` | Known frontend mistakes (NEVER repeat) |
+| `references/audit-checklists.md` | Audit checklists for contract security |
 
 ### Templates
 
@@ -1754,6 +1972,7 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 | `templates/contracts/OP20Token.ts` | OP20 token implementation |
 | `templates/contracts/OP721NFT.ts` | OP721 NFT implementation |
 | `templates/contracts/MyContract.ts` | Generic contract template |
+| `templates/contracts/UpgradeableContract.ts` | Upgradeable contract template |
 | `templates/contracts/index.ts` | Entry point / exports |
 
 #### Frontend Templates (`templates/frontend/`)
@@ -1762,7 +1981,7 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 |------|-------------|
 | `templates/frontend/App.tsx` | Main app component |
 | `templates/frontend/OPNetProvider.tsx` | OPNet context provider |
-| `templates/frontend/WalletConnect.tsx` | Wallet connection component |
+| `templates/frontend/WalletConnect.tsx` | Wallet connection component (v2) |
 | `templates/frontend/ContractInteraction.tsx` | Contract interaction component |
 | `templates/frontend/useWallet.ts` | Wallet hook |
 | `templates/frontend/useContract.ts` | Contract hook |
@@ -1784,8 +2003,10 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 | File | Description |
 |------|-------------|
 | `templates/tests/OP20.test.ts` | OP20 test example |
+| `templates/tests/OP721.test.ts` | OP721 NFT test example |
+| `templates/tests/CustomContract.test.ts` | Custom contract test example |
 | `templates/tests/setup.ts` | Test setup |
-| `templates/tests/gulpfile.js` | Gulp build config |
+| `templates/tests/gulpfile.js` | Gulp task runner for tests |
 
 ---
 
@@ -1793,21 +2014,11 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 
 Common errors and fixes are documented in `references/troubleshooting.md`. Consult it when you hit build errors, RPC failures, frontend crashes, or deployment issues.
 
-### Additional References
-
-| File | Description |
-|------|-------------|
-| `references/troubleshooting.md` | Build errors, RPC failures, deployment issues |
-| `references/audit-checklists.md` | Quick-reference audit checklists |
-| `references/complete-file-index.md` | Catalog of all documentation files |
-| `references/known-frontend-mistakes.md` | Common frontend pitfalls and fixes |
-| `references/opnet-core-concepts.md` | OPNet architecture overview |
-
 ---
 
 ## Advanced Transaction Features
 
-When users ask about adding fees, notes, or advanced features to transactions (deployments, interactions, funding), **ALWAYS check `docs/core-transaction-transaction-factory-interfaces.md`**.
+When users ask about adding fees, notes, or advanced features to transactions (deployments, interactions, funding), **ALWAYS check `docs/transaction/transaction-building/transaction-factory-interfaces.md`**.
 
 ### Common User Requests → Parameters
 
@@ -1857,7 +2068,7 @@ await simulation.sendTransaction({
 });
 ```
 
-**For full details, read `docs/core-transaction-transaction-factory-interfaces.md`.**
+**For full details, read `docs/transaction/transaction-building/transaction-factory-interfaces.md`.**
 
 ---
 
@@ -1865,10 +2076,14 @@ await simulation.sendTransaction({
 
 ### Key Concepts
 
-1. **Contracts use a custom AssemblyScript fork** (`@btc-vision/assemblyscript`) - This fork adds **closure support** to standard AssemblyScript, enabling callbacks and higher-order function patterns. Always install `@btc-vision/assemblyscript` instead of the upstream `assemblyscript` package.
+1. **Contracts use a custom AssemblyScript fork** (`@btc-vision/assemblyscript`) - This fork adds **closure support** to standard AssemblyScript, enabling callbacks and higher-order function patterns. Always `npm uninstall assemblyscript` first, then install `@btc-vision/assemblyscript`.
 2. **Constructor runs on EVERY interaction** - Use `onDeployment()` for initialization
 3. **Contracts CANNOT hold BTC** - They are calculators, not custodians
 4. **Verify-don't-custody pattern** - Check `Blockchain.tx.outputs` against internal state
+5. **Buffer is GONE** - Use `Uint8Array` everywhere. The entire OPNet stack has migrated away from Node.js `Buffer`.
+6. **Upgradeable contracts** - Extend `Upgradeable` base class and implement `onUpdate()` lifecycle hook for safe contract upgrades
+7. **Constant/Payable ABI validation** - Methods marked `constant` cannot modify state; methods marked `payable` can receive BTC. Enforced at ABI level.
+8. **ECDSA + Keccak-256** - The VM natively supports ECDSA signature verification and Keccak-256 hashing with per-algorithm gas model
 
 ### Decorator Reference
 
@@ -1923,8 +2138,8 @@ await opnet('My Tests', async (vm: OPNetUnit) => {
 
 ### Key Resources
 
-- Read `docs/plugins-plugin-sdk-README.md`
-- Read `docs/core-OIP-OIP-0003.md` for plugin specification
+- Read `docs/plugin-sdk/README.md`
+- Read `docs/OIP/OIP/OIP-0003.md` for plugin specification
 - Use `templates/plugins/OP20Indexer.ts` for indexers
 
 ### Plugin Lifecycle
@@ -1946,11 +2161,11 @@ You **MUST** implement `onReorg()` to revert state for reorged blocks. Failure t
 
 ### Contract Interaction: ALWAYS Use `opnet` npm Package + ABI
 
-**Every frontend that interacts with an OPNet contract MUST use the `opnet` npm package with the contract's ABI definition.** No exceptions. No raw RPC. No manual encoding. The ABI provides type-safe method calls, automatic calldata encoding/decoding, and proper error handling. See the ABI reference docs (`docs/core-opnet-abi-reference-*.md`) for built-in and custom ABI definitions.
+**Every frontend that interacts with an OPNet contract MUST use the `opnet` npm package with the contract's ABI definition.** No exceptions. No raw RPC. No manual encoding. The ABI provides type-safe method calls, automatic calldata encoding/decoding, and proper error handling. See the ABI reference docs (`docs/opnet/abi-reference/*.md`) for built-in and custom ABI definitions.
 
 ### Configuration Standard
 
-Frontend configs **MUST** use `docs/eslint-react.json` and `docs/tsconfig-generic.json`:
+Frontend configs **MUST** use `docs/eslint-react.js` and `docs/tsconfig-generic.json`:
 
 - Vite + React
 - Vitest for testing
@@ -1991,7 +2206,7 @@ See `docs/frontend-motoswap-ui-README.md` for complete integration guide.
 
 **FORBIDDEN**: Express, Fastify, Koa, Hapi - they are significantly slower.
 
-See `docs/core-opnet-backend-api.md` for complete guide.
+See `docs/opnet/README.md` for complete guide.
 
 ---
 
@@ -1999,7 +2214,7 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 
 **OP_WALLET is the main and official wallet supporting OPNet.** It is developed by the OPNet team and provides the most complete feature set for interacting with the OPNet Bitcoin L1 smart contract ecosystem.
 
-**ALL OPNet dApps MUST integrate OP_WALLET via `@btc-vision/walletconnect`.** This is non-negotiable.
+**ALL OPNet dApps MUST integrate OP_WALLET via `@btc-vision/opwallet`.** This is non-negotiable.
 
 ### Why OP_WALLET is Required for Full OPNet Support
 
@@ -2020,10 +2235,10 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 
 ### Integration
 
-Install `@btc-vision/walletconnect` for wallet integration in your frontend:
+Install `@btc-vision/opwallet` for wallet integration in your frontend:
 
 ```bash
-npm i @btc-vision/walletconnect
+npm i @btc-vision/opwallet
 ```
 
 Use `@btc-vision/walletconnect` alongside it for the connection UI:
@@ -2061,12 +2276,12 @@ Install OP_WALLET from the [Chrome Web Store](https://chromewebstore.google.com/
 
 | Package | Doc | Description |
 |---------|-----|-------------|
-| `@btc-vision/bitcoin` | `docs/clients-bitcoin-README.md` | Bitcoin lib (709x faster PSBT) |
-| `@btc-vision/bip32` | `docs/clients-bip32-README.md` | HD derivation + quantum |
-| `@btc-vision/ecpair` | `docs/clients-ecpair-README.md` | EC key pairs |
-| `@btc-vision/transaction` | `docs/core-transaction-README.md` | OPNet transactions |
-| `opnet` | `docs/core-opnet-README.md` | Main client library |
-| `@btc-vision/walletconnect` | `docs/clients-walletconnect-README.md` | Wallet connection (OP_WALLET + UniSat) |
+| `@btc-vision/bitcoin` | `docs/bitcoin/README.md` | Bitcoin lib (709x faster PSBT) |
+| `@btc-vision/bip32` | `docs/bip32/README.md` | HD derivation + quantum |
+| `@btc-vision/ecpair` | `docs/ecpair/README.md` | EC key pairs |
+| `@btc-vision/transaction` | `docs/transaction/README.md` | OPNet transactions |
+| `opnet` | `docs/opnet/README.md` | Main client library |
+| `@btc-vision/walletconnect` | `docs/walletconnect/README.md` | Wallet connection (OP_WALLET + UniSat) |
 
 ---
 
@@ -2076,23 +2291,49 @@ Install OP_WALLET from the [Chrome Web Store](https://chromewebstore.google.com/
 |------|-----------------|
 | Node.js | >= 24.0.0 |
 | TypeScript | >= 5.9.3 |
-| ESLint | `^9.39.2` |
-| @eslint/js | `^9.39.2` |
+| ESLint | `^10.0.0` |
+| @eslint/js | `^10.0.1` |
+| typescript-eslint | `^8.56.0` |
 | AssemblyScript | `@btc-vision/assemblyscript@^0.29.2` (custom fork with closure support) |
 
 ### MANDATORY Install Commands
 
-**For Non-Contract Projects (Frontend, Backend, Plugins, Tests):**
+**CRITICAL: Clean install is MANDATORY. Always `rm -rf node_modules package-lock.json` first.**
+
+**For Backend / Frontend / Plugins:**
 
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/bitcoin@rc @btc-vision/transaction@rc opnet@rc @btc-vision/bip32 @btc-vision/ecpair --prefer-online
+rm -rf node_modules package-lock.json
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc --prefer-online
 ```
 
 **For Contract Projects (AssemblyScript):**
 
 ```bash
-npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/opnet-transform@1.1.0 @btc-vision/assemblyscript@^0.29.2 @btc-vision/as-bignum@0.1.2 @btc-vision/btc-runtime@rc --prefer-online
+rm -rf node_modules package-lock.json
+npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/btc-runtime@rc @btc-vision/as-bignum@latest @btc-vision/assemblyscript @btc-vision/opnet-transform@latest @assemblyscript/loader@latest --prefer-online
 ```
+
+**For Unit Test Projects:**
+
+```bash
+rm -rf node_modules package-lock.json
+npm uninstall assemblyscript 2>/dev/null
+npx npm-check-updates -u && npm i @btc-vision/bitcoin@rc @btc-vision/bip32@latest @btc-vision/ecpair@latest @btc-vision/transaction@rc opnet@rc @btc-vision/op-vm@rc @btc-vision/unit-test-framework@beta --prefer-online
+```
+
+**ESLint (all project types):**
+
+```bash
+npm i -D eslint@^10.0.0 @eslint/js@^10.0.1 typescript-eslint@^8.56.0
+# For React frontends, also:
+npm i -D eslint-plugin-react-hooks eslint-plugin-react-refresh
+```
+
+**CRITICAL:** For contract projects, `npm uninstall assemblyscript` MUST run first. The upstream `assemblyscript` package conflicts with `@btc-vision/assemblyscript`.
+
+**NOTE:** WalletConnect (`@btc-vision/walletconnect`) is NOT upgraded yet - do not update it.
 
 **ALWAYS run the appropriate command after creating package.json. No exceptions.**
 
@@ -2104,4 +2345,9 @@ npx npm-check-updates -u && npm i eslint@^9.39.2 @eslint/js@^9.39.2 @btc-vision/
 2. **Verify project configuration** - Before writing any code
 3. **NO `any` type** - Ever
 4. **Test everything** - Unit tests required
-5. **Handle
+5. **Handle errors gracefully** - Never swallow exceptions
+6. **Use Uint8Array** - Buffer is removed from the OPNet stack
+7. **Use `@btc-vision/assemblyscript`** - Not upstream `assemblyscript`
+8. **Backend MUST use hyper-express + threading** - No Express, no single-threaded APIs
+9. **Use MongoDB** when persistent storage is needed
+10. **Follow the TypeScript Law** - Every rule is mandatory, no exceptions
