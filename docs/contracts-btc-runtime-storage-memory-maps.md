@@ -349,17 +349,17 @@ contract Staking {
 @final
 export class Staking extends OP_NET {
     private stakedAmountPointer: u16 = Blockchain.nextPointer;
-    private stakedTimestampPointer: u16 = Blockchain.nextPointer;
+    private stakedBlockPointer: u16 = Blockchain.nextPointer;
     private rewardsPointer: u16 = Blockchain.nextPointer;
 
     private stakedAmount: AddressMemoryMap;
-    private stakedTimestamp: AddressMemoryMap;
+    private stakedBlock: AddressMemoryMap;
     private rewards: AddressMemoryMap;
 
     constructor() {
         super();
         this.stakedAmount = new AddressMemoryMap(this.stakedAmountPointer);
-        this.stakedTimestamp = new AddressMemoryMap(this.stakedTimestampPointer);
+        this.stakedBlock = new AddressMemoryMap(this.stakedBlockPointer);
         this.rewards = new AddressMemoryMap(this.rewardsPointer);
     }
 
@@ -368,7 +368,8 @@ export class Staking extends OP_NET {
         const sender = Blockchain.tx.sender;
 
         this.stakedAmount.set(sender, SafeMath.add(this.stakedAmount.get(sender), amount));
-        this.stakedTimestamp.set(sender, u256.fromU64(Blockchain.block.medianTime));
+        // Use block number, NOT medianTimestamp (timestamps are miner-manipulable)
+        this.stakedBlock.set(sender, u256.fromU64(Blockchain.block.numberU64));
 
         return new BytesWriter(0);
     }
@@ -400,14 +401,15 @@ export class Staking extends OP_NET {
     }
 
     private calculateReward(user: Address): u256 {
-        const timestamp = this.stakedTimestamp.get(user);
-        const currentTime = u256.fromU64(Blockchain.block.medianTime);
-        const duration = SafeMath.sub(currentTime, timestamp);
+        const stakedAtBlock = this.stakedBlock.get(user);
+        const currentBlock = u256.fromU64(Blockchain.block.numberU64);
+        const blocksDuration = SafeMath.sub(currentBlock, stakedAtBlock);
         const staked = this.stakedAmount.get(user);
 
-        // Simplified: staked * duration / YEAR_IN_SECONDS
-        const YEAR_SECONDS = u256.fromU64(31536000);
-        return SafeMath.div(SafeMath.mul(staked, duration), YEAR_SECONDS);
+        // Simplified: staked * blocksDuration / BLOCKS_PER_YEAR
+        // ~144 blocks/day × 365 days = 52,560 blocks/year
+        const BLOCKS_PER_YEAR = u256.fromU64(52560);
+        return SafeMath.div(SafeMath.mul(staked, blocksDuration), BLOCKS_PER_YEAR);
     }
 
     public getStakeInfo(calldata: Calldata): BytesWriter {
@@ -415,7 +417,7 @@ export class Staking extends OP_NET {
 
         const writer = new BytesWriter(96);
         writer.writeU256(this.stakedAmount.get(user));
-        writer.writeU256(this.stakedTimestamp.get(user));
+        writer.writeU256(this.stakedBlock.get(user));
         writer.writeU256(this.rewards.get(user));
         return writer;
     }
@@ -493,7 +495,7 @@ private computeAllowanceKey(owner: Address, spender: Address): u256 {
 ### Staking with Multiple Values
 
 ```typescript
-// Track staked amount and timestamp per user
+// Track staked amount and block number per user
 private stakedAmountPointer: u16 = Blockchain.nextPointer;
 private stakedTimePointer: u16 = Blockchain.nextPointer;
 
@@ -514,8 +516,8 @@ public stake(calldata: Calldata): BytesWriter {
     const current = this.stakedAmount.get(sender);
     this.stakedAmount.set(sender, SafeMath.add(current, amount));
 
-    // Update stake time
-    this.stakedTime.set(sender, u256.fromU64(Blockchain.block.medianTime));
+    // Record stake block (use block number, NOT timestamps — miners can manipulate timestamps)
+    this.stakedTime.set(sender, u256.fromU64(Blockchain.block.numberU64));
 
     return new BytesWriter(0);
 }

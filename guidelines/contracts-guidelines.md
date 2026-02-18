@@ -241,7 +241,7 @@ export class MyContract extends OP_NET {
 | `StoredU256` | Single u256 value | Total supply, deployment block |
 | `StoredBoolean` | Boolean flag | Mint closed, paused |
 | `StoredString` | String value | Name, symbol |
-| `StoredU64` | Single u64 value | Block numbers, timestamps |
+| `StoredU64` | Single u64 value | Block numbers, counters |
 | `AddressMemoryMap` | Address → value mapping | Balances, mints per address |
 | `StoredMapU256` | u256 → u256 mapping | Generic key-value |
 

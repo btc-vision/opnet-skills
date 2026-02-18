@@ -419,7 +419,7 @@ public constructor() {
 | Get sender | `msg.sender` | `Blockchain.tx.sender` |
 | Get origin | `tx.origin` | `Blockchain.tx.origin` |
 | Block number | `block.number` | `Blockchain.block.number` |
-| Block timestamp | `block.timestamp` | `Blockchain.block.medianTime` |
+| Block-based timing | `block.number` | `Blockchain.block.numberU64` (NEVER use medianTime — miner-manipulable) |
 
 ### Simple Value
 

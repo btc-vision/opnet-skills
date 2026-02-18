@@ -13,6 +13,7 @@ The `@btc-vision/bitcoin` library provides comprehensive support for all Bitcoin
 | P2WPKH | Pay to Witness Public Key Hash | bc1q... | Yes (v0) |
 | P2WSH | Pay to Witness Script Hash | bc1q... | Yes (v0) |
 | P2TR | Pay to Taproot | bc1p... | Yes (v1) |
+| P2MR | Pay to Merkle Root | bc1z... | Yes (v2) |
 | P2OP | Pay to OPNet | opnet1... | Yes (v16) |
 | Embed | OP_RETURN data | None | N/A |
 
@@ -27,6 +28,7 @@ import {
     p2wpkh, P2WPKH,
     p2wsh, P2WSH,
     p2tr, P2TR,
+    p2mr, P2MR,
     p2op, P2OP,
     p2data, Embed,
 } from '@btc-vision/bitcoin';
@@ -142,6 +144,115 @@ console.log(tweaked.parity); // 0 or 1
 
 // Find script path for control block
 const path = findScriptPath(hashTree, leafHash);
+```
+
+---
+
+## P2MR (Pay to Merkle Root)
+
+Pay to Merkle Root (BIP 360) - quantum-safe alternative to P2TR that commits directly to a script tree Merkle root without an internal public key.
+
+### Class: P2MR
+
+```typescript
+class P2MR {
+    static readonly NAME = 'p2mr';
+
+    constructor(params: {
+        address?: string;
+        hash?: Uint8Array;
+        scriptTree?: Taptree;
+        output?: Uint8Array;
+        witness?: Uint8Array[];
+        redeem?: ScriptRedeem;
+        redeemVersion?: number;
+        network?: Network;
+    }, opts?: PaymentOpts);
+
+    // Properties
+    get name(): 'p2mr';
+    get network(): Network;
+    get address(): string | undefined;
+    get hash(): Bytes32 | undefined;
+    get output(): Script | undefined;
+    get redeem(): ScriptRedeem | undefined;
+    get redeemVersion(): number;
+    get witness(): Uint8Array[] | undefined;
+
+    // Static factory methods
+    static fromScriptTree(scriptTree: Taptree, network?: Network): P2MR;
+    static fromAddress(address: string, network?: Network): P2MR;
+    static fromOutput(output: Uint8Array, network?: Network): P2MR;
+    static fromHash(hash: Bytes32, network?: Network): P2MR;
+
+    toPayment(): P2MRPayment;
+}
+```
+
+### Examples
+
+```typescript
+import { P2MR, p2mr, toHashTree, tapleafHash } from '@btc-vision/bitcoin';
+
+// From script tree (single leaf)
+const payment = P2MR.fromScriptTree({ output: script1 });
+console.log(payment.address); // bc1z...
+
+// From script tree (two leaves)
+const withScripts = P2MR.fromScriptTree([
+    { output: script1 },
+    { output: script2 },
+]);
+
+// From merkle root hash
+const fromHash = P2MR.fromHash(merkleRoot);
+
+// From address
+const fromAddr = P2MR.fromAddress('bc1z...');
+console.log(fromAddr.hash); // 32-byte merkle root
+
+// From output script
+const decoded = P2MR.fromOutput(scriptPubKey);
+
+// Script-path spending witness
+const spending = new P2MR({
+    scriptTree: [{ output: redeemScript }, { output: otherScript }],
+    redeem: { output: redeemScript },
+});
+console.log(spending.witness); // [redeemScript, controlBlock]
+
+// Legacy factory function
+const legacy = p2mr({ scriptTree: { output: script1 } });
+```
+
+### Script Structure
+
+```
+Output:              OP_2 <32-byte merkle root>
+Script-path witness: [script inputs..., script, control block]
+Control block:       [version_byte | 0x01, merkle_path...]
+```
+
+### P2MR Utilities
+
+```typescript
+import {
+    rootHashFromPathP2MR,
+    tapBranchHash,
+    toHashTree,
+    tapleafHash,
+    findScriptPath,
+    LEAF_VERSION_TAPSCRIPT,
+} from '@btc-vision/bitcoin';
+
+// Reconstruct merkle root from control block (no internal pubkey)
+const merkleRoot = rootHashFromPathP2MR(controlBlock, leafHash);
+
+// Hash two branches
+const branchHash = tapBranchHash(leftChild, rightChild);
+
+// Build hash tree (same as P2TR)
+const hashTree = toHashTree(scriptTree);
 ```
 
 ---

@@ -882,12 +882,15 @@ private _salePhase: StoredU8;
 if (this._salePhase.value != PHASE_WHITELIST) { }
 ```
 
-### Use u256 for Timestamps When Comparing
+### Use Block Number for Time-Based Logic
 
 ```typescript
-// Good: Convert timestamps to u256 for comparison with u256 values
-const now = u256.fromU64(Blockchain.block.medianTime);
-if (now >= this._reservationEnd.value) { }
+// CORRECT: Use block number (tamper-proof, deterministic)
+const currentBlock = u256.fromU64(Blockchain.block.numberU64);
+if (currentBlock >= this._reservationEndBlock.value) { }
+
+// WRONG: medianTimestamp is miner-manipulable — NEVER use for deadlines
+// const now = u256.fromU64(Blockchain.block.medianTime); // INSECURE
 ```
 
 ### Add Decorators for ABI Generation
@@ -913,7 +916,7 @@ public getSaleInfo(_calldata: Calldata): BytesWriter { }
 | Inheritance | `contract NFT is ERC721, Ownable` | `class NFT extends OP721` |
 | Constructor | `constructor() ERC721("Name", "SYM")` | `onDeployment()` + `this.instantiate(...)` |
 | Mint | `_safeMint(to, tokenId)` | `this._mint(to, tokenId)` |
-| Timestamp | `block.timestamp` | `Blockchain.block.medianTime` |
+| Time logic | `block.number` | `Blockchain.block.numberU64` (NEVER use medianTimestamp) |
 | Whitelist Storage | `mapping(address => bool)` | `AddressMemoryMap` |
 
 For detailed OP721 API documentation, see [OP721 Contract](../contracts/op721-nft.md).
@@ -1065,7 +1068,7 @@ if (this._salePhase.value != PHASE_WHITELIST) {
 
 | Feature | Benefit |
 |---------|---------|
-| **Bitcoin Timestamps** | Uses `medianTime` for manipulation-resistant timing |
+| **Block Number Timing** | Uses `Blockchain.block.numberU64` for tamper-proof time logic (never medianTimestamp) |
 | **Native u256** | First-class 256-bit integer support |
 | **Explicit Storage** | Direct control over storage layout with pointers |
 | **Single Inheritance** | Avoids ERC721's multiple inheritance complexity |

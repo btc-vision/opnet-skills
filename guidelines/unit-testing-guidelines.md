@@ -409,8 +409,8 @@ const addr = Blockchain.generateRandomAddress();
 Blockchain.mineBlock();
 
 // Access block info (inside contract)
-// Blockchain.block.number
-// Blockchain.block.timestamp
+// Blockchain.block.number     — use for ALL time-dependent logic
+// Blockchain.block.numberU64  — same as above, u64 type
 ```
 
 ### Testing Multiple Users

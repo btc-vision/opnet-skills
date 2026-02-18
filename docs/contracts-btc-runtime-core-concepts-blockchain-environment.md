@@ -35,8 +35,8 @@ const blockNumberU256: u256 = Blockchain.block.numberU256;
 // Block hash
 const blockHash: Uint8Array = Blockchain.block.hash;
 
-// Median time past (consensus timestamp)
-const timestamp: u64 = Blockchain.block.medianTimestamp;
+// Block number as u64 (use this for ALL time-dependent logic)
+const blockNum: u64 = Blockchain.block.numberU64;
 ```
 
 ```mermaid
@@ -49,7 +49,6 @@ flowchart LR
         B1["Blockchain.block.number"] --> V1["u64"]
         B2["Blockchain.block.numberU256"] --> V2["u256"]
         B3["Blockchain.block.hash"] --> V3["Uint8Array (32 bytes)"]
-        B4["Blockchain.block.medianTimestamp"] --> V4["u64"]
     end
 ```
 
@@ -58,20 +57,29 @@ flowchart LR
 | Solidity | OPNet | Notes |
 |----------|-------|-------|
 | `block.number` | `Blockchain.block.number` | Current block height |
-| `block.timestamp` | `Blockchain.block.medianTimestamp` | OPNet uses Median Time Past |
+| `block.timestamp` | **DO NOT USE** | See warning below |
 | `blockhash(n)` | `Blockchain.getBlockHash(n)` | Historical block hash |
 
-### Median Time Past
+### CRITICAL: Use Block Number, NOT Timestamps
 
-OPNet uses **Median Time Past (MTP)** instead of raw block timestamps. MTP is the median of the last 11 block timestamps, providing more reliable time measurements that are resistant to miner manipulation.
+**`Blockchain.block.medianTimestamp` / `medianTime` are INSECURE for time-dependent logic.** Bitcoin miners can manipulate block timestamps within a ~2 hour window. The Median Time Past only needs to exceed the median of the previous 11 blocks, giving miners significant leeway to shift timestamps forward or backward.
+
+**ALWAYS use block height (`Blockchain.block.numberU64`) instead:**
 
 ```typescript
-// Get current timestamp (median time past)
-const currentTime: u64 = Blockchain.block.medianTimestamp;
+// WRONG - Timestamps can be manipulated by miners
+// const currentTime: u64 = Blockchain.block.medianTimestamp;
+// if (currentTime > this.deadline.value) { ... }
 
-// Time-based logic
-const ONE_HOUR: u64 = 3600;
-if (currentTime > this.deadline.value) {
+// CORRECT - Block numbers are deterministic and tamper-proof
+const currentBlock: u64 = Blockchain.block.numberU64;
+
+// Convert time requirements to block counts (1 block ≈ 10 min on Bitcoin)
+const SIX_BLOCKS: u64 = 6;     // ≈ 1 hour
+const HUNDRED_BLOCKS: u64 = 100; // ≈ ~17 hours
+const ONE_FORTY_FOUR_BLOCKS: u64 = 144; // ≈ 1 day
+
+if (currentBlock > this.deadlineBlock.value) {
     throw new Revert('Deadline passed');
 }
 ```
@@ -701,8 +709,7 @@ export class MyContract extends OP_NET {
         // Access control
         this.onlyDeployer(Blockchain.tx.sender);
 
-        // Time check
-        const now = Blockchain.block.medianTimestamp;
+        // Block-based cooldown (NEVER use medianTimestamp — miner-manipulable)
         const lastBlock = this.lastUpdate.value.toU64();
         const currentBlock = Blockchain.block.number;
 
@@ -711,7 +718,7 @@ export class MyContract extends OP_NET {
             throw new Revert('Must wait 10 blocks');
         }
 
-        // Update timestamp
+        // Update to current block
         this.lastUpdate.value = u256.fromU64(currentBlock);
 
         return new BytesWriter(0);

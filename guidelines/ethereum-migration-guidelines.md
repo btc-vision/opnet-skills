@@ -308,7 +308,7 @@ const contract = new ethers.Contract(addr, abi, signer);
 ### OPNet Model
 ```typescript
 // OPNet: wallet context, FOUR identity values
-// Uses @btc-vision/opwallet + @btc-vision/walletconnect
+// Uses @btc-vision/walletconnect
 const { walletAddress, publicKey, hashedMLDSAKey, mldsaPublicKey } = useWalletConnect();
 // Read operations use JSONRpcProvider (separate from wallet)
 const provider = new JSONRpcProvider(rpcUrl, network);

@@ -559,7 +559,7 @@ public async transfer(to: Address, amount: bigint): Promise<boolean> {
 |------------------|------------------|
 | Array lengths | Satoshi amounts |
 | Loop counters | Block heights |
-| Small flags | Timestamps |
+| Small flags | Database IDs |
 | Ports, pixels | Token amounts |
 | | File sizes |
 

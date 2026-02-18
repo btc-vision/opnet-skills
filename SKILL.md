@@ -70,9 +70,9 @@ Workflow order:
 
 **Never build a frontend that references a contract that doesn't exist yet.**
 
-### 2. WALLET INTEGRATION: ALWAYS USE `@btc-vision/opwallet`
+### 2. WALLET INTEGRATION: ALWAYS USE `@btc-vision/walletconnect`
 
-**All OPNet websites MUST use `@btc-vision/opwallet` for OP_WALLET integration.**
+**All OPNet websites MUST use `@btc-vision/walletconnect` for OP_WALLET integration.**
 
 OP_WALLET is the official and ONLY wallet that fully supports OPNet features (MLDSA signatures, quantum-resistant keys, full OPNet integration). Every frontend dApp MUST integrate it.
 
@@ -125,6 +125,7 @@ These are real mistakes observed across multiple AI agents. **If you make any of
 | Calling `approve()` on OP-20 tokens | OP-20 does NOT have `approve()`. It uses `increaseAllowance()` / `decreaseAllowance()` to prevent the well-known approve race condition. | Use `increaseAllowance(spender, amount)` and `decreaseAllowance(spender, amount)` |
 | Passing `bc1p...` addresses to `Address.fromString()` | `Address.fromString()` takes TWO hex pubkey parameters, not a Bech32 address string | `Address.fromString(hashedMLDSAKey, tweakedPublicKey)` — both are hex strings |
 | Using `bitcoinjs-lib` | OPNet has its own Bitcoin library with critical patches and 709x faster PSBT | Use `@btc-vision/bitcoin` — never `bitcoinjs-lib` |
+| Using `medianTimestamp` / `medianTime` for time-based logic | **CRITICAL SECURITY VULNERABILITY.** Bitcoin miners can manipulate timestamps within a ~2 hour window. Median Time Past is NOT reliable for deadlines, expirations, or any time-sensitive contract logic. An attacker can exploit timestamp manipulation to bypass cooldowns, expire reservations early, or extend lock periods. | **ALWAYS use `Blockchain.block.numberU64` (block height)** for ALL time-dependent logic: expirations, cooldowns, vesting, staking duration, deadlines. Block numbers are deterministic and cannot be manipulated. Convert time requirements to block counts (1 block ≈ 10 minutes on Bitcoin). NEVER use `Blockchain.block.medianTimestamp` or `Blockchain.block.medianTime`. |
 | Factory-deploys-child-contract pattern | OPNet contracts cannot deploy other contracts. There is no `CREATE` or `CREATE2` opcode. | Deploy each contract separately, then link them via stored addresses |
 | Skipping simulation before `sendTransaction()` | Bitcoin transfers are **irreversible**. If the contract reverts, your BTC is gone. | ALWAYS simulate first: `contract.method()` to simulate, then `result.sendTransaction(params)` only after confirming success |
 | Using Express/Fastify/Koa for backends | These frameworks are **forbidden**. They are significantly slower. | Use `@btc-vision/hyper-express` and `@btc-vision/uwebsocket.js` only |
@@ -1335,7 +1336,7 @@ public async transfer(to: Address, amount: bigint): Promise<boolean> {
 ### Numeric Types
 
 - **`number`**: Array lengths, loop counters, small flags, ports, pixels
-- **`bigint`**: Satoshi amounts, block heights, timestamps, database IDs, file sizes, cumulative totals
+- **`bigint`**: Satoshi amounts, block heights, database IDs, file sizes, cumulative totals
 - **Floats for financial values**: **FORBIDDEN** - Use fixed-point `bigint` with explicit scale
 
 ### Common API Pitfalls
@@ -1360,6 +1361,12 @@ The first parameter is the 32-byte SHA256 **hash** of the ML-DSA public key — 
 
 ### Required tsconfig.json Settings
 
+**Note:** `module` and `moduleResolution` depend on your target:
+- **Frontend (Vite):** `"module": "ESNext"`, `"moduleResolution": "bundler"`
+- **Libraries / Backend (Node.js):** `"module": "NodeNext"`, `"moduleResolution": "NodeNext"` (see `docs/tsconfig-generic.json`)
+
+The strict type-checking settings below are required for all project types:
+
 ```json
 {
     "compilerOptions": {
@@ -1373,8 +1380,6 @@ The first parameter is the 32-byte SHA256 **hash** of the ML-DSA public key — 
         "noFallthroughCasesInSwitch": true,
         "noUncheckedIndexedAccess": true,
         "noImplicitOverride": true,
-        "moduleResolution": "bundler",
-        "module": "ESNext",
         "target": "ESNext",
         "lib": ["ESNext"],
         "isolatedModules": true,
@@ -1788,6 +1793,16 @@ const totalSupply: StoredU256 = new StoredU256(TOTAL_SUPPLY_POINTER);
 
 Common errors and fixes are documented in `references/troubleshooting.md`. Consult it when you hit build errors, RPC failures, frontend crashes, or deployment issues.
 
+### Additional References
+
+| File | Description |
+|------|-------------|
+| `references/troubleshooting.md` | Build errors, RPC failures, deployment issues |
+| `references/audit-checklists.md` | Quick-reference audit checklists |
+| `references/complete-file-index.md` | Catalog of all documentation files |
+| `references/known-frontend-mistakes.md` | Common frontend pitfalls and fixes |
+| `references/opnet-core-concepts.md` | OPNet architecture overview |
+
 ---
 
 ## Advanced Transaction Features
@@ -1984,7 +1999,7 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 
 **OP_WALLET is the main and official wallet supporting OPNet.** It is developed by the OPNet team and provides the most complete feature set for interacting with the OPNet Bitcoin L1 smart contract ecosystem.
 
-**ALL OPNet dApps MUST integrate OP_WALLET via `@btc-vision/opwallet`.** This is non-negotiable.
+**ALL OPNet dApps MUST integrate OP_WALLET via `@btc-vision/walletconnect`.** This is non-negotiable.
 
 ### Why OP_WALLET is Required for Full OPNet Support
 
@@ -2005,10 +2020,10 @@ See `docs/core-opnet-backend-api.md` for complete guide.
 
 ### Integration
 
-Install `@btc-vision/opwallet` for wallet integration in your frontend:
+Install `@btc-vision/walletconnect` for wallet integration in your frontend:
 
 ```bash
-npm i @btc-vision/opwallet
+npm i @btc-vision/walletconnect
 ```
 
 Use `@btc-vision/walletconnect` alongside it for the connection UI:

@@ -44,10 +44,11 @@ export function advanceBlocks(count: number): void {
 }
 
 /**
- * Set block timestamp
+ * Set block number directly (preferred over timestamp for time-dependent tests).
+ * Block numbers are tamper-proof; timestamps are miner-manipulable on Bitcoin.
  */
-export function setBlockTimestamp(timestamp: number): void {
-    Blockchain.setBlockTimestamp(timestamp);
+export function setBlockNumber(blockNumber: number): void {
+    Blockchain.setBlockNumber(blockNumber);
 }
 
 /**

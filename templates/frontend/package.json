@@ -21,7 +21,8 @@
         "@btc-vision/transaction": "rc",
         "@btc-vision/bip32": "latest",
         "@btc-vision/ecpair": "latest",
-        "@noble/hashes": "2.0.1"
+        "@noble/hashes": "2.0.1",
+        "global": "latest"
     },
     "overrides": {
         "@noble/hashes": "2.0.1"

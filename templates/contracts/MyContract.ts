@@ -1,5 +1,6 @@
 import { u256 } from '@btc-vision/as-bignum/assembly';
 import {
+    ABIDataTypes,
     Address,
     Blockchain,
     BytesWriter,
@@ -122,7 +123,8 @@ export class MyContract extends OP_NET {
     @returns({ name: 'isPaused', type: ABIDataTypes.BOOL })
     public isPaused(_: Calldata): BytesWriter {
         const response: BytesWriter = new BytesWriter(1);
-        response.writeBoolean(<boolean>this.paused.value);
+        const isPausedValue: boolean = this.paused.value ?? false;
+        response.writeBoolean(isPausedValue);
         return response;
     }
 
